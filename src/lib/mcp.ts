@@ -381,8 +381,8 @@ export async function handleMcpRequest(
     if (request.method === "initialize") {
       return success(id, {
         protocolVersion: "2025-03-26",
-        capabilities: { tools: {} },
-        serverInfo: { name: "lifestyle-mcp-gym", version: "0.1.0" },
+        capabilities: { tools: { listChanged: true } },
+        serverInfo: { name: "lifestyle-mcp-gym", version: "0.2.0" },
       });
     }
     if (request.method === "notifications/initialized") {

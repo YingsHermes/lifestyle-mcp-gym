@@ -50,8 +50,8 @@ describe("MCP JSON-RPC surface", () => {
       id: 1,
       result: {
         protocolVersion: "2025-03-26",
-        serverInfo: { name: "lifestyle-mcp-gym" },
-        capabilities: { tools: {} },
+        serverInfo: { name: "lifestyle-mcp-gym", version: "0.2.0" },
+        capabilities: { tools: { listChanged: true } },
       },
     });
 

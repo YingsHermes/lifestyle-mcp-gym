@@ -7,8 +7,11 @@ import {
   ApiRequestError,
   fetchApi,
   metricCreatedResponseSchema,
+  nutritionEntryCreatedResponseSchema,
+  nutritionProfileSavedResponseSchema,
   workoutCreatedResponseSchema,
   type Agent,
+  type NutritionProfile,
 } from "@/components/client-api";
 import { Icon, InlineNotice, Spinner } from "@/components/ui";
 
@@ -25,7 +28,7 @@ interface ExerciseDraft {
 
 const blankSet = (): SetDraft => ({ reps: "", weightKg: "", durationSeconds: "" });
 const blankExercise = (): ExerciseDraft => ({ name: "", sets: [blankSet()] });
-const scopeSchema = z.enum(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "dashboard:link"]);
+const scopeSchema = z.enum(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "nutrition:read", "nutrition:write", "coaching:read", "dashboard:link"]);
 type AgentScope = z.infer<typeof scopeSchema>;
 
 function defaultLocalDateTime(): string {
@@ -180,6 +183,118 @@ export function MetricForm({ onSaved, onCancel }: { onSaved: () => Promise<void>
         <div className="form-actions"><button className="text-button" type="button" onClick={onCancel}>Discard</button><button className="primary-button" type="submit" disabled={submitting}>{submitting ? <Spinner label="Saving" /> : <>Save measurement <Icon name="arrow" size={17} /></>}</button></div>
       </form>
     </section>
+  );
+}
+
+export function NutritionProfileForm({ profile, onSaved }: { profile: NutritionProfile | null; onSaved: () => Promise<void> }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    const form = new FormData(event.currentTarget);
+    try {
+      await fetchApi("/api/nutrition/profile", nutritionProfileSavedResponseSchema, {
+        method: "PUT",
+        body: JSON.stringify({
+          sex: form.get("sex"),
+          birthDate: form.get("birthDate"),
+          heightCm: Number(form.get("heightCm")),
+          activityLevel: form.get("activityLevel"),
+          goal: form.get("goal"),
+          targetRateKgPerWeek: optionalNumber(String(form.get("targetRateKgPerWeek") ?? "")),
+          dietaryPreferences: String(form.get("dietaryPreferences") ?? "").split(",").map((item) => item.trim()).filter(Boolean),
+          allergies: String(form.get("allergies") ?? "").split(",").map((item) => item.trim()).filter(Boolean),
+        }),
+      });
+      await onSaved();
+    } catch (caught) {
+      setError(caught instanceof ApiRequestError ? caught.message : "Nutrition profile could not be saved");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="data-form nutrition-profile-form" onSubmit={submit}>
+      <div className="subsection-head"><div><span className="section-kicker">{profile ? "Profile inputs" : "Start here"}</span><h2>{profile ? "Edit nutrition profile" : "Set your nutrition profile"}</h2></div><Icon name="spark" /></div>
+      <p className="form-intro">These user-editable inputs drive deterministic calorie and macro estimates.</p>
+      {error && <InlineNotice>{error}</InlineNotice>}
+      <div className="nutrition-form-grid">
+        <label><span>Sex used by formula</span><select name="sex" defaultValue={profile?.sex ?? ""} required><option value="" disabled>Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other — midpoint estimate</option></select></label>
+        <label><span>Birth date</span><input name="birthDate" type="date" max={new Date().toISOString().slice(0, 10)} defaultValue={profile?.birthDate} required /></label>
+        <label><span>Height <small>cm</small></span><input name="heightCm" type="number" min={100} max={250} step="0.1" defaultValue={profile?.heightCm} required /></label>
+        <label><span>Activity level</span><select name="activityLevel" defaultValue={profile?.activityLevel ?? ""} required><option value="" disabled>Select</option><option value="sedentary">Sedentary</option><option value="lightly_active">Lightly active</option><option value="moderately_active">Moderately active</option><option value="very_active">Very active</option><option value="athlete">Athlete</option></select></label>
+        <label><span>Goal</span><select name="goal" defaultValue={profile?.goal ?? ""} required><option value="" disabled>Select</option><option value="lose">Lose</option><option value="maintain">Maintain</option><option value="gain">Gain</option></select></label>
+        <label><span>Target rate <small>kg/week, optional</small></span><input name="targetRateKgPerWeek" type="number" min={-1} max={1} step="0.05" defaultValue={profile?.targetRateKgPerWeek} placeholder="-0.25" /></label>
+      </div>
+      <label><span>Dietary preferences <small>comma separated</small></span><input name="dietaryPreferences" maxLength={500} defaultValue={profile?.dietaryPreferences.join(", ")} placeholder="vegetarian, high fiber" /></label>
+      <label><span>Allergies <small>comma separated</small></span><input name="allergies" maxLength={500} defaultValue={profile?.allergies.join(", ")} placeholder="peanuts" /></label>
+      <button className="primary-button" type="submit" disabled={submitting}>{submitting ? <Spinner label="Saving profile" /> : <>{profile ? "Update profile" : "Calculate my estimates"} <Icon name="arrow" size={17} /></>}</button>
+    </form>
+  );
+}
+
+export function FoodLogForm({ onSaved }: { onSaved: () => Promise<void> }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      await fetchApi("/api/nutrition/entries", nutritionEntryCreatedResponseSchema, {
+        method: "POST",
+        body: JSON.stringify({
+          eatenAt: new Date(String(form.get("eatenAt"))).toISOString(),
+          mealType: form.get("mealType"),
+          foodName: form.get("foodName"),
+          servingSize: form.get("servingSize"),
+          servings: Number(form.get("servings")),
+          caloriesKcal: Number(form.get("caloriesKcal")),
+          proteinG: Number(form.get("proteinG")),
+          carbohydratesG: Number(form.get("carbohydratesG")),
+          fatG: Number(form.get("fatG")),
+          fiberG: Number(form.get("fiberG")),
+          notes: String(form.get("notes") ?? "").trim() || undefined,
+        }),
+      });
+      formElement.reset();
+      await onSaved();
+    } catch (caught) {
+      setError(caught instanceof ApiRequestError ? caught.message : "Food entry could not be saved");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="data-form food-log-form" onSubmit={submit}>
+      <div className="subsection-head"><div><span className="section-kicker">User-entered data</span><h2>Log food</h2></div><Icon name="plus" /></div>
+      <p className="form-intro">Enter totals for the complete entry. No food database values are inferred.</p>
+      {error && <InlineNotice>{error}</InlineNotice>}
+      <label><span>Food or dish</span><input name="foodName" maxLength={160} placeholder="Tofu rice bowl" required /></label>
+      <div className="nutrition-form-grid">
+        <label><span>Eaten at</span><input name="eatenAt" type="datetime-local" defaultValue={defaultLocalDateTime()} required /></label>
+        <label><span>Meal</span><select name="mealType" defaultValue="snack" required><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option><option value="other">Other</option></select></label>
+        <label><span>Serving size</span><input name="servingSize" maxLength={100} placeholder="1 bowl" required /></label>
+        <label><span>Servings</span><input name="servings" type="number" min="0.01" max="100" step="0.01" defaultValue="1" required /></label>
+      </div>
+      <div className="food-macro-grid">
+        <label><span>Calories <small>kcal</small></span><input name="caloriesKcal" type="number" min="0" max="20000" step="0.1" required /></label>
+        <label><span>Protein <small>g</small></span><input name="proteinG" type="number" min="0" max="2000" step="0.1" required /></label>
+        <label><span>Carbs <small>g</small></span><input name="carbohydratesG" type="number" min="0" max="2000" step="0.1" required /></label>
+        <label><span>Fat <small>g</small></span><input name="fatG" type="number" min="0" max="2000" step="0.1" required /></label>
+        <label><span>Fiber <small>g</small></span><input name="fiberG" type="number" min="0" max="500" step="0.1" required /></label>
+      </div>
+      <label><span>Notes <small>optional</small></span><textarea name="notes" rows={2} maxLength={1000} placeholder="Source or recipe details" /></label>
+      <button className="primary-button" type="submit" disabled={submitting}>{submitting ? <Spinner label="Logging food" /> : <>Save user-entered food <Icon name="arrow" size={17} /></>}</button>
+    </form>
   );
 }
 

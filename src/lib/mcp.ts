@@ -1,8 +1,13 @@
 import { z, ZodError } from "zod";
 import {
   agentRegistrationSchema,
+  agentScopes,
   bodyMetricInputSchema,
   dashboardLinkInputSchema,
+  foodLogInputSchema,
+  foodLogListQuerySchema,
+  nutritionProfileInputSchema,
+  nutritionSummaryQuerySchema,
   workoutInputSchema,
   type AgentScope,
 } from "@/lib/domain";
@@ -23,6 +28,10 @@ const toolCallSchema = z.object({
 const listWorkoutsArgumentsSchema = z.object({
   limit: z.number().int().min(1).max(100).optional().default(20),
 });
+
+const calorieTargetsArgumentsSchema = z.object({
+  asOfDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).strict();
 
 const noArgumentsSchema = z.object({}).strict();
 
@@ -49,7 +58,7 @@ const tools: ToolDefinition[] = [
       required: ["name", "scopes", "capabilities"],
       properties: {
         name: { type: "string", minLength: 2, maxLength: 80 },
-        scopes: { type: "array", minItems: 1, items: { enum: ["workouts:read", "workouts:write", "metrics:read", "metrics:write", "dashboard:link"] } },
+        scopes: { type: "array", minItems: 1, items: { enum: [...agentScopes] } },
         capabilities: { type: "array", minItems: 1, items: { type: "string" } },
         webhookUrl: { type: "string", format: "uri", pattern: "^https://" },
         ownerMetadata: { type: "object", additionalProperties: { type: "string" } },
@@ -124,6 +133,72 @@ const tools: ToolDefinition[] = [
     },
   },
   {
+    name: "set_nutrition_profile",
+    description: "Create or update the owner's user-entered nutrition profile used by deterministic wellness calculations.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["sex", "birthDate", "heightCm", "activityLevel", "goal"],
+      properties: {
+        sex: { enum: ["male", "female", "other"] },
+        birthDate: { type: "string", format: "date" },
+        heightCm: { type: "number", minimum: 100, maximum: 250 },
+        activityLevel: { enum: ["sedentary", "lightly_active", "moderately_active", "very_active", "athlete"] },
+        goal: { enum: ["lose", "maintain", "gain"] },
+        targetRateKgPerWeek: { type: "number", minimum: -1, maximum: 1 },
+        dietaryPreferences: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 50 } },
+        allergies: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 50 } },
+      },
+    },
+  },
+  {
+    name: "get_nutrition_profile",
+    description: "Get the owner's persisted, user-entered nutrition profile.",
+    inputSchema: { type: "object", additionalProperties: false },
+  },
+  {
+    name: "log_food",
+    description: "Persist user-entered food and nutrient totals. Values are totals for this log entry; the server never invents nutrition data.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["eatenAt", "mealType", "foodName", "servingSize", "servings", "caloriesKcal", "proteinG", "carbohydratesG", "fatG", "fiberG"],
+      properties: {
+        eatenAt: { type: "string", format: "date-time" },
+        mealType: { enum: ["breakfast", "lunch", "dinner", "snack", "other"] },
+        foodName: { type: "string", minLength: 1, maxLength: 160 },
+        servingSize: { type: "string", minLength: 1, maxLength: 100 },
+        servings: { type: "number", exclusiveMinimum: 0, maximum: 100 },
+        caloriesKcal: { type: "number", minimum: 0, maximum: 20_000 },
+        proteinG: { type: "number", minimum: 0, maximum: 2_000 },
+        carbohydratesG: { type: "number", minimum: 0, maximum: 2_000 },
+        fatG: { type: "number", minimum: 0, maximum: 2_000 },
+        fiberG: { type: "number", minimum: 0, maximum: 500 },
+        notes: { type: "string", minLength: 1, maxLength: 1_000 },
+      },
+    },
+  },
+  {
+    name: "list_food_log",
+    description: "List recent user-entered food records for the owner.",
+    inputSchema: { type: "object", additionalProperties: false, properties: { limit: { type: "integer", minimum: 1, maximum: 500, default: 100 } } },
+  },
+  {
+    name: "get_nutrition_summary",
+    description: "Summarize user-entered calories and macros for a local calendar date and compare them with calculated estimates.",
+    inputSchema: { type: "object", additionalProperties: false, properties: { date: { type: "string", format: "date" } } },
+  },
+  {
+    name: "calculate_calorie_targets",
+    description: "Calculate deterministic BMR, TDEE, calorie, and macro wellness estimates with formula assumptions and safety notes.",
+    inputSchema: { type: "object", additionalProperties: false, properties: { asOfDate: { type: "string", format: "date" } } },
+  },
+  {
+    name: "get_coaching_context",
+    description: "Return one grounded LLM-ready context containing nutrition, targets, today's food, training stats, body metrics, and missing-data actions.",
+    inputSchema: { type: "object", additionalProperties: false },
+  },
+  {
     name: "create_dashboard_link",
     description: "Create a short-lived, single-use dashboard sign-in link for the agent owner.",
     inputSchema: {
@@ -149,8 +224,11 @@ function failure(id: RpcId, status: number, code: number, message: string, data?
 }
 
 function toolResult(value: unknown): Record<string, unknown> {
+  const humanReadable = typeof value === "object" && value !== null && "humanReadable" in value && typeof value.humanReadable === "string"
+    ? value.humanReadable
+    : JSON.stringify(value);
   return {
-    content: [{ type: "text", text: JSON.stringify(value) }],
+    content: [{ type: "text", text: humanReadable }],
     structuredContent: value,
   };
 }
@@ -176,6 +254,13 @@ function scopesForTool(toolName: string): AgentScope[] | null {
     get_stats: ["workouts:read", "metrics:read"],
     record_body_metrics: ["metrics:write"],
     create_dashboard_link: ["dashboard:link"],
+    set_nutrition_profile: ["nutrition:write"],
+    get_nutrition_profile: ["nutrition:read"],
+    log_food: ["nutrition:write"],
+    list_food_log: ["nutrition:read"],
+    get_nutrition_summary: ["nutrition:read"],
+    calculate_calorie_targets: ["nutrition:read"],
+    get_coaching_context: ["coaching:read"],
   };
   return scopes[toolName] ?? null;
 }
@@ -210,6 +295,54 @@ async function callTool(
       throw new AppError(500, "app_url_unavailable", "Dashboard links are not configured");
     }
     return service.createDashboardLink(principal, dashboardLinkInputSchema.parse(rawArguments), options.appBaseUrl);
+  }
+  if (toolName === "set_nutrition_profile") {
+    const profile = await service.setNutritionProfile(ownerId, nutritionProfileInputSchema.parse(rawArguments));
+    return { profile, dataSource: "user_entered", humanReadable: "Nutrition profile saved from user-entered data." };
+  }
+  if (toolName === "get_nutrition_profile") {
+    noArgumentsSchema.parse(rawArguments);
+    const profile = await service.getNutritionProfile(ownerId);
+    return {
+      profile,
+      dataSource: "user_entered",
+      humanReadable: profile ? "Nutrition profile loaded from user-entered data." : "No nutrition profile is set.",
+    };
+  }
+  if (toolName === "log_food") {
+    const entry = await service.logFood(ownerId, foodLogInputSchema.parse(rawArguments), agentId);
+    return {
+      entry,
+      dataSource: "user_entered",
+      humanReadable: `Logged ${entry.foodName}: ${entry.caloriesKcal} kcal and ${entry.proteinG} g protein from user-entered values.`,
+    };
+  }
+  if (toolName === "list_food_log") {
+    const query = foodLogListQuerySchema.parse(rawArguments);
+    const entries = await service.listFoodLog(ownerId, query);
+    return {
+      entries,
+      dataSource: "user_entered",
+      humanReadable: `Loaded ${entries.length} user-entered food ${entries.length === 1 ? "entry" : "entries"}.`,
+    };
+  }
+  if (toolName === "get_nutrition_summary") {
+    const query = nutritionSummaryQuerySchema.parse(rawArguments);
+    return service.getNutritionSummary(ownerId, query.date);
+  }
+  if (toolName === "calculate_calorie_targets") {
+    const input = calorieTargetsArgumentsSchema.parse(rawArguments);
+    const targets = await service.calculateCalorieTargets(ownerId, input.asOfDate);
+    return {
+      ...targets,
+      humanReadable: targets.targetCalories === null
+        ? `Calorie targets need: ${targets.missingInputs.join(", ")}.`
+        : `Estimated daily target: ${targets.targetCalories} kcal, ${targets.proteinTargetG} g protein, ${targets.carbsTargetG} g carbohydrates, and ${targets.fatTargetG} g fat.`,
+    };
+  }
+  if (toolName === "get_coaching_context") {
+    noArgumentsSchema.parse(rawArguments);
+    return service.getCoachingContext(ownerId);
   }
 
 

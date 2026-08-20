@@ -1,7 +1,20 @@
 import { z } from "zod";
 
 export const experienceLevels = ["beginner", "intermediate", "advanced"] as const;
-export const agentScopes = ["workouts:read", "workouts:write", "metrics:read", "metrics:write", "dashboard:link"] as const;
+export const agentScopes = [
+  "workouts:read",
+  "workouts:write",
+  "metrics:read",
+  "metrics:write",
+  "nutrition:read",
+  "nutrition:write",
+  "coaching:read",
+  "dashboard:link",
+] as const;
+export const nutritionSexes = ["male", "female", "other"] as const;
+export const activityLevels = ["sedentary", "lightly_active", "moderately_active", "very_active", "athlete"] as const;
+export const nutritionGoals = ["lose", "maintain", "gain"] as const;
+export const mealTypes = ["breakfast", "lunch", "dinner", "snack", "other"] as const;
 
 const validTimezone = (value: string) => {
   try {
@@ -87,6 +100,50 @@ export const bodyMetricInputSchema = z
     "Provide at least one measurement",
   );
 
+const isoDateSchema = z.string().refine((value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}, "Use a valid ISO date in YYYY-MM-DD format");
+
+const nutritionStringListSchema = z.array(safeText(1, 50)).max(20).optional().default([]);
+
+export const nutritionProfileInputSchema = z.object({
+  sex: z.enum(nutritionSexes),
+  birthDate: isoDateSchema,
+  heightCm: z.number().min(100).max(250),
+  activityLevel: z.enum(activityLevels),
+  goal: z.enum(nutritionGoals),
+  targetRateKgPerWeek: z.number().min(-1).max(1).optional(),
+  dietaryPreferences: nutritionStringListSchema,
+  allergies: nutritionStringListSchema,
+}).strict();
+
+export const foodLogInputSchema = z.object({
+  eatenAt: z.string().datetime({ offset: true }),
+  mealType: z.enum(mealTypes),
+  foodName: safeText(1, 160),
+  servingSize: safeText(1, 100),
+  servings: z.number().positive().max(100),
+  caloriesKcal: z.number().min(0).max(20_000),
+  proteinG: z.number().min(0).max(2_000),
+  carbohydratesG: z.number().min(0).max(2_000),
+  fatG: z.number().min(0).max(2_000),
+  fiberG: z.number().min(0).max(500),
+  notes: safeText(1, 1_000).optional(),
+}).strict();
+
+export const foodLogListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+}).strict();
+
+export const nutritionSummaryQuerySchema = z.object({
+  date: isoDateSchema.optional(),
+}).strict();
+
 export type HumanRegistrationInput = z.infer<typeof humanRegistrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AgentRegistrationInput = z.infer<typeof agentRegistrationSchema>;
@@ -95,6 +152,14 @@ export type WorkoutInput = z.infer<typeof workoutInputSchema>;
 export type BodyMetricInput = z.infer<typeof bodyMetricInputSchema>;
 export type AgentScope = (typeof agentScopes)[number];
 export type ExperienceLevel = (typeof experienceLevels)[number];
+export type NutritionProfileInput = z.input<typeof nutritionProfileInputSchema>;
+export type FoodLogInput = z.infer<typeof foodLogInputSchema>;
+export type FoodLogListQuery = z.input<typeof foodLogListQuerySchema>;
+export type NutritionSummaryQuery = z.input<typeof nutritionSummaryQuerySchema>;
+export type NutritionSex = (typeof nutritionSexes)[number];
+export type ActivityLevel = (typeof activityLevels)[number];
+export type NutritionGoal = (typeof nutritionGoals)[number];
+export type MealType = (typeof mealTypes)[number];
 
 export interface User {
   id: string;
@@ -173,6 +238,38 @@ export interface BodyMetric {
   weightKg?: number;
   bodyFatPercent?: number;
   waistCm?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface NutritionProfile {
+  ownerId: string;
+  sex: NutritionSex;
+  birthDate: string;
+  heightCm: number;
+  activityLevel: ActivityLevel;
+  goal: NutritionGoal;
+  targetRateKgPerWeek?: number;
+  dietaryPreferences: string[];
+  allergies: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NutritionEntry {
+  id: string;
+  ownerId: string;
+  agentId?: string;
+  eatenAt: string;
+  mealType: MealType;
+  foodName: string;
+  servingSize: string;
+  servings: number;
+  caloriesKcal: number;
+  proteinG: number;
+  carbohydratesG: number;
+  fatG: number;
+  fiberG: number;
   notes?: string;
   createdAt: string;
 }

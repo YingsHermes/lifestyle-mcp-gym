@@ -24,17 +24,31 @@ const toolCallExample = `curl -s https://your-domain.example/api/mcp \\
     "id":2,
     "method":"tools/call",
     "params":{
-      "name":"log_workout",
+      "name":"get_coaching_context",
+      "arguments":{}
+    }
+  }'`;
+
+const foodLogExample = `curl -s https://your-domain.example/api/mcp \\
+  -H 'content-type: application/json' \\
+  -H 'authorization: Bearer agent_ID.SECRET' \\
+  -d '{
+    "jsonrpc":"2.0",
+    "id":3,
+    "method":"tools/call",
+    "params":{
+      "name":"log_food",
       "arguments":{
-        "title":"Lower strength",
-        "occurredAt":"2026-08-20T09:00:00Z",
-        "exercises":[{
-          "name":"Back squat",
-          "sets":[
-            {"reps":5,"weightKg":100},
-            {"reps":5,"weightKg":100}
-          ]
-        }]
+        "eatenAt":"2026-08-20T12:30:00Z",
+        "mealType":"lunch",
+        "foodName":"Tofu rice bowl",
+        "servingSize":"1 bowl",
+        "servings":1,
+        "caloriesKcal":640,
+        "proteinG":31,
+        "carbohydratesG":82,
+        "fatG":19,
+        "fiberG":11
       }
     }
   }'`;
@@ -60,8 +74,8 @@ export function ApiGuide({ compact = false }: { compact?: boolean }) {
       <div className="section-kicker"><Icon name="code" size={16} /> Agent quickstart</div>
       <div className="guide-heading">
         <div>
-          <h2>One endpoint. Five focused tools.</h2>
-          <p>JSON-RPC 2.0 over HTTP, shaped for MCP protocol version 2025-03-26.</p>
+          <h2>One endpoint. Thirteen scoped tools.</h2>
+          <p>JSON-RPC 2.0 over HTTP. Structured results keep an LLM grounded while it handles the conversation.</p>
         </div>
         <span className="endpoint-chip">POST /api/mcp</span>
       </div>
@@ -72,10 +86,11 @@ export function ApiGuide({ compact = false }: { compact?: boolean }) {
       </ol>
       <div className="code-grid">
         <CodeBlock label="Initialize">{initializeExample}</CodeBlock>
-        <CodeBlock label="Log a workout">{toolCallExample}</CodeBlock>
+        <CodeBlock label="One-call coaching context">{toolCallExample}</CodeBlock>
+        <CodeBlock label="Log user-entered food">{foodLogExample}</CodeBlock>
       </div>
       <div className="tool-strip" aria-label="Available MCP tools">
-        {["register_agent", "log_workout", "list_workouts", "get_stats", "record_body_metrics"].map((tool) => <code key={tool}>{tool}</code>)}
+        {["register_agent", "log_workout", "list_workouts", "get_stats", "record_body_metrics", "set_nutrition_profile", "get_nutrition_profile", "log_food", "list_food_log", "get_nutrition_summary", "calculate_calorie_targets", "get_coaching_context", "create_dashboard_link"].map((tool) => <code key={tool}>{tool}</code>)}
       </div>
       <p className="security-line"><Icon name="shield" size={16} /> Agent scopes are checked per call. Registration requires an authenticated human session.</p>
     </section>

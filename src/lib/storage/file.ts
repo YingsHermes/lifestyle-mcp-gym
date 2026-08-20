@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Agent, AgentDashboardLink, BodyMetric, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { storageDocumentSchema } from "@/lib/storage/schema";
 
@@ -123,5 +123,23 @@ export class JsonFileStorage extends MemoryStorage {
   override async listBodyMetrics(ownerId: string, limit: number): Promise<BodyMetric[]> {
     await this.waitForReads();
     return super.listBodyMetrics(ownerId, limit);
+  }
+
+  override async upsertNutritionProfile(profile: NutritionProfile): Promise<NutritionProfile> {
+    return this.mutate(() => super.upsertNutritionProfile(profile));
+  }
+
+  override async getNutritionProfile(ownerId: string): Promise<NutritionProfile | null> {
+    await this.waitForReads();
+    return super.getNutritionProfile(ownerId);
+  }
+
+  override async createNutritionEntry(entry: NutritionEntry): Promise<NutritionEntry> {
+    return this.mutate(() => super.createNutritionEntry(entry));
+  }
+
+  override async listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]> {
+    await this.waitForReads();
+    return super.listNutritionEntries(ownerId, limit);
   }
 }

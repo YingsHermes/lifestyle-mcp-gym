@@ -1,4 +1,4 @@
-import type { Agent, AgentDashboardLink, BodyMetric, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 export class StorageConflictError extends Error {}
 
 
@@ -19,6 +19,10 @@ export interface LifestyleStorage {
   listWorkouts(ownerId: string, limit: number): Promise<Workout[]>;
   createBodyMetric(metric: BodyMetric): Promise<BodyMetric>;
   listBodyMetrics(ownerId: string, limit: number): Promise<BodyMetric[]>;
+  upsertNutritionProfile(profile: NutritionProfile): Promise<NutritionProfile>;
+  getNutritionProfile(ownerId: string): Promise<NutritionProfile | null>;
+  createNutritionEntry(entry: NutritionEntry): Promise<NutritionEntry>;
+  listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]>;
 }
 
 export interface StorageDocument {
@@ -29,6 +33,8 @@ export interface StorageDocument {
   agentDashboardLinks: AgentDashboardLink[];
   workouts: Workout[];
   bodyMetrics: BodyMetric[];
+  nutritionProfiles: NutritionProfile[];
+  nutritionEntries: NutritionEntry[];
 }
 
 export function emptyStorageDocument(): StorageDocument {
@@ -40,5 +46,7 @@ export function emptyStorageDocument(): StorageDocument {
     agentDashboardLinks: [],
     workouts: [],
     bodyMetrics: [],
+    nutritionProfiles: [],
+    nutritionEntries: [],
   };
 }

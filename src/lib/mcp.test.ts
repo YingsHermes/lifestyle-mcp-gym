@@ -67,6 +67,13 @@ describe("MCP JSON-RPC surface", () => {
       "list_workouts",
       "get_stats",
       "record_body_metrics",
+      "set_nutrition_profile",
+      "get_nutrition_profile",
+      "log_food",
+      "list_food_log",
+      "get_nutrition_summary",
+      "calculate_calorie_targets",
+      "get_coaching_context",
       "create_dashboard_link",
     ]);
   });

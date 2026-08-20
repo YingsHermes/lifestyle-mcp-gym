@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { agentScopes, experienceLevels } from "@/lib/domain";
+import { activityLevels, agentScopes, experienceLevels, mealTypes, nutritionGoals, nutritionSexes } from "@/lib/domain";
 
 const userSchema = z.object({
   id: z.string(),
@@ -76,6 +76,38 @@ const bodyMetricSchema = z.object({
   createdAt: z.string(),
 });
 
+const nutritionProfileSchema = z.object({
+  ownerId: z.string(),
+  sex: z.enum(nutritionSexes),
+  birthDate: z.string(),
+  heightCm: z.number(),
+  activityLevel: z.enum(activityLevels),
+  goal: z.enum(nutritionGoals),
+  targetRateKgPerWeek: z.number().optional(),
+  dietaryPreferences: z.array(z.string()),
+  allergies: z.array(z.string()),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const nutritionEntrySchema = z.object({
+  id: z.string(),
+  ownerId: z.string(),
+  agentId: z.string().optional(),
+  eatenAt: z.string(),
+  mealType: z.enum(mealTypes),
+  foodName: z.string(),
+  servingSize: z.string(),
+  servings: z.number(),
+  caloriesKcal: z.number(),
+  proteinG: z.number(),
+  carbohydratesG: z.number(),
+  fatG: z.number(),
+  fiberG: z.number(),
+  notes: z.string().optional(),
+  createdAt: z.string(),
+});
+
 export const storageDocumentSchema = z.object({
   version: z.literal(1),
   users: z.array(userSchema),
@@ -84,4 +116,6 @@ export const storageDocumentSchema = z.object({
   agentDashboardLinks: z.array(agentDashboardLinkSchema).default([]),
   workouts: z.array(workoutSchema),
   bodyMetrics: z.array(bodyMetricSchema),
+  nutritionProfiles: z.array(nutritionProfileSchema).default([]),
+  nutritionEntries: z.array(nutritionEntrySchema).default([]),
 });

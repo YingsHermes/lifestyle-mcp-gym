@@ -1,16 +1,18 @@
 # Lifestyle MCP Gym
 
-Lifestyle MCP Gym is an agent-ready gym tracker: humans register a full profile, create scoped agents, and track workouts, body metrics, and training statistics through a responsive web dashboard and JSON-RPC MCP endpoint.
+Lifestyle MCP Gym is an agent-ready gym and personal-trainer data layer: humans manage nutrition, user-entered food, workouts, body metrics, and deterministic wellness estimates through a responsive dashboard and scoped JSON-RPC MCP tools.
 
-## MVP capabilities
+## Capabilities
 
 - Human registration and login with password hashing, secure HTTP-only session cookies, goals, experience, timezone, and consent.
 - Agent registration with scoped capabilities, optional HTTPS webhook, owner metadata, and a one-time secret response. Only a hash is stored.
 - Workout tracking: exercises, sets, reps, weight, duration, notes, and recent activity.
 - Body metrics: weight, body fat, waist, date, and notes.
-- Stats: workout count, weekly activity, training volume, and latest body metrics.
+- Nutrition profiles and bounded food logs. Nutrition values are always user-entered and are never fabricated.
+- Deterministic Mifflin-St Jeor BMR, activity-factor TDEE, goal calories, and weight-based macro estimates with versioned assumptions, missing-input guidance, safety floors, and wellness disclaimers.
+- One-call coaching context with the nutrition profile, calculated targets, today's nutrition, recent training stats, latest body metrics, and explicit next actions.
 - MCP JSON-RPC endpoint at `/api/mcp` with `initialize`, `tools/list`, and `tools/call`.
-- MCP tools: `register_agent`, `log_workout`, `list_workouts`, `get_stats`, and `record_body_metrics`.
+- Scoped MCP tools for workouts, metrics, nutrition, coaching context, agent registration, and dashboard access links.
 
 ## Run locally
 
@@ -55,11 +57,11 @@ When both Supabase variables are present, the server automatically selects `Supa
    npx supabase@latest db push
    ```
 
-   Alternatively, run `supabase/migrations/001_lifestyle_gym.sql` once in the project's SQL editor. The migration is safe to rerun.
+   The checked-in migrations are idempotent and safe to rerun.
 3. Copy the project URL and service-role key into `.env.local` for a local Supabase-backed server.
 4. Restart the Next.js server and confirm `/api/status` reports storage mode `supabase`.
 
-The migration creates normalized humans, sessions, agents, workouts, workout exercises/sets, and body metrics. Row Level Security is enabled on every table. There are intentionally no public policies: this custom-auth MVP accesses the schema only through the server-side service-role client, which bypasses RLS.
+The migrations create normalized humans, sessions, agents, workouts, workout exercises/sets, body metrics, nutrition profiles, and nutrition entries. Row Level Security is enabled on every table. There are intentionally no public policies: all data access uses the server-side service-role client.
 
 ## MCP quickstart
 
@@ -77,8 +79,57 @@ curl -s https://YOUR_DEPLOYMENT/api/mcp \
   --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```
 
-Human browser sessions may call the endpoint from the same origin. Agent tool calls require the relevant scopes. `register_agent` requires a human session; workout and metric tools require their matching agent scope.
+Human browser sessions may call the endpoint from the same origin. Agent tool calls require the relevant scopes. Existing workout and metric scopes are unchanged. Nutrition tools use `nutrition:read` or `nutrition:write`; `get_coaching_context` uses only `coaching:read`, which authorizes the aggregate read without granting separate nutrition, workout, or metric tools.
 
+
+### LLM-ready coaching context
+
+An agent with `coaching:read` can retrieve every grounded coaching input in one call:
+
+```bash
+curl -s https://YOUR_DEPLOYMENT/api/mcp \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer YOUR_AGENT_SECRET' \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":"coach-context",
+    "method":"tools/call",
+    "params":{"name":"get_coaching_context","arguments":{}}
+  }'
+```
+
+The response includes concise text in `result.content` and machine-readable JSON in `result.structuredContent`. Calculated targets include the formula version, exact inputs and assumptions, missing inputs, clamp explanations, and a safety note.
+
+### Log user-entered food
+
+`log_food` never looks up or invents nutrients. Supply totals for the complete log entry, including all servings:
+
+```bash
+curl -s https://YOUR_DEPLOYMENT/api/mcp \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer YOUR_AGENT_SECRET' \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":"food-1",
+    "method":"tools/call",
+    "params":{
+      "name":"log_food",
+      "arguments":{
+        "eatenAt":"2026-08-20T12:30:00Z",
+        "mealType":"lunch",
+        "foodName":"Tofu rice bowl",
+        "servingSize":"1 bowl",
+        "servings":1,
+        "caloriesKcal":640,
+        "proteinG":31,
+        "carbohydratesG":82,
+        "fatG":19,
+        "fiberG":11,
+        "notes":"Totals entered from the recipe"
+      }
+    }
+  }'
+```
 ## Validate
 
 ```bash

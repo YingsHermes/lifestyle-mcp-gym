@@ -1,4 +1,4 @@
-import type { Agent, AgentDashboardLink, BodyMetric, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 import { emptyStorageDocument, StorageConflictError, type LifestyleStorage, type StorageDocument } from "@/lib/storage/types";
 
 export class MemoryStorage implements LifestyleStorage {
@@ -105,5 +105,33 @@ export class MemoryStorage implements LifestyleStorage {
       .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt))
       .slice(0, limit)
       .map((metric) => structuredClone(metric));
+  }
+
+  async upsertNutritionProfile(profile: NutritionProfile): Promise<NutritionProfile> {
+    const existingIndex = this.document.nutritionProfiles.findIndex((candidate) => candidate.ownerId === profile.ownerId);
+    if (existingIndex >= 0) {
+      this.document.nutritionProfiles[existingIndex] = structuredClone(profile);
+    } else {
+      this.document.nutritionProfiles.push(structuredClone(profile));
+    }
+    return structuredClone(profile);
+  }
+
+  async getNutritionProfile(ownerId: string): Promise<NutritionProfile | null> {
+    const profile = this.document.nutritionProfiles.find((candidate) => candidate.ownerId === ownerId);
+    return profile ? structuredClone(profile) : null;
+  }
+
+  async createNutritionEntry(entry: NutritionEntry): Promise<NutritionEntry> {
+    this.document.nutritionEntries.push(structuredClone(entry));
+    return structuredClone(entry);
+  }
+
+  async listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]> {
+    return this.document.nutritionEntries
+      .filter((entry) => entry.ownerId === ownerId)
+      .sort((left, right) => right.eatenAt.localeCompare(left.eatenAt))
+      .slice(0, limit)
+      .map((entry) => structuredClone(entry));
   }
 }

@@ -1,11 +1,17 @@
 import { createClient, type PostgrestError, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
+  activityLevels,
   agentScopes,
   experienceLevels,
+  mealTypes,
+  nutritionGoals,
+  nutritionSexes,
   type Agent,
   type AgentDashboardLink,
   type BodyMetric,
+  type NutritionEntry,
+  type NutritionProfile,
   type Session,
   type User,
   type Workout,
@@ -95,11 +101,45 @@ const bodyMetricRowSchema = z.object({
   created_at: z.string(),
 });
 
+const nutritionProfileRowSchema = z.object({
+  owner_id: z.string(),
+  sex: z.enum(nutritionSexes),
+  birth_date: z.string(),
+  height_cm: z.number(),
+  activity_level: z.enum(activityLevels),
+  goal: z.enum(nutritionGoals),
+  target_rate_kg_per_week: z.number().nullable(),
+  dietary_preferences: z.array(z.string()),
+  allergies: z.array(z.string()),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+const nutritionEntryRowSchema = z.object({
+  id: z.string(),
+  owner_id: z.string(),
+  agent_id: z.string().nullable(),
+  eaten_at: z.string(),
+  meal_type: z.enum(mealTypes),
+  food_name: z.string(),
+  serving_size: z.string(),
+  servings: z.number(),
+  calories_kcal: z.number(),
+  protein_g: z.number(),
+  carbohydrates_g: z.number(),
+  fat_g: z.number(),
+  fiber_g: z.number(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+});
+
 const HUMAN_SELECT = "id,name,email,password_hash,timezone,goals,experience,consent_at,created_at";
 const SESSION_SELECT = "id,human_id,token_hash,expires_at,created_at";
 const AGENT_SELECT = "id,owner_id,name,secret_hash,scopes,capabilities,webhook_url,owner_metadata,created_at,last_used_at";
 const WORKOUT_SELECT = "id,owner_id,agent_id,title,occurred_at,duration_minutes,notes,created_at,workout_exercises(id,position,name,workout_sets(id,position,reps,weight_kg,duration_seconds,notes))";
 const BODY_METRIC_SELECT = "id,owner_id,agent_id,recorded_at,weight_kg,body_fat_percent,waist_cm,notes,created_at";
+const NUTRITION_PROFILE_SELECT = "owner_id,sex,birth_date,height_cm,activity_level,goal,target_rate_kg_per_week,dietary_preferences,allergies,created_at,updated_at";
+const NUTRITION_ENTRY_SELECT = "id,owner_id,agent_id,eaten_at,meal_type,food_name,serving_size,servings,calories_kcal,protein_g,carbohydrates_g,fat_g,fiber_g,notes,created_at";
 const PAGE_SIZE = 1_000;
 
 export function serializeHuman(user: User) {
@@ -261,6 +301,80 @@ export function deserializeBodyMetric(value: unknown): BodyMetric {
     weightKg: row.weight_kg ?? undefined,
     bodyFatPercent: row.body_fat_percent ?? undefined,
     waistCm: row.waist_cm ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function serializeNutritionProfile(profile: NutritionProfile) {
+  return {
+    owner_id: profile.ownerId,
+    sex: profile.sex,
+    birth_date: profile.birthDate,
+    height_cm: profile.heightCm,
+    activity_level: profile.activityLevel,
+    goal: profile.goal,
+    target_rate_kg_per_week: profile.targetRateKgPerWeek ?? null,
+    dietary_preferences: profile.dietaryPreferences,
+    allergies: profile.allergies,
+    created_at: profile.createdAt,
+    updated_at: profile.updatedAt,
+  };
+}
+
+export function deserializeNutritionProfile(value: unknown): NutritionProfile {
+  const row = nutritionProfileRowSchema.parse(value);
+  return {
+    ownerId: row.owner_id,
+    sex: row.sex,
+    birthDate: row.birth_date,
+    heightCm: row.height_cm,
+    activityLevel: row.activity_level,
+    goal: row.goal,
+    targetRateKgPerWeek: row.target_rate_kg_per_week ?? undefined,
+    dietaryPreferences: row.dietary_preferences,
+    allergies: row.allergies,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function serializeNutritionEntry(entry: NutritionEntry) {
+  return {
+    id: entry.id,
+    owner_id: entry.ownerId,
+    agent_id: entry.agentId ?? null,
+    eaten_at: entry.eatenAt,
+    meal_type: entry.mealType,
+    food_name: entry.foodName,
+    serving_size: entry.servingSize,
+    servings: entry.servings,
+    calories_kcal: entry.caloriesKcal,
+    protein_g: entry.proteinG,
+    carbohydrates_g: entry.carbohydratesG,
+    fat_g: entry.fatG,
+    fiber_g: entry.fiberG,
+    notes: entry.notes ?? null,
+    created_at: entry.createdAt,
+  };
+}
+
+export function deserializeNutritionEntry(value: unknown): NutritionEntry {
+  const row = nutritionEntryRowSchema.parse(value);
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    agentId: row.agent_id ?? undefined,
+    eatenAt: row.eaten_at,
+    mealType: row.meal_type,
+    foodName: row.food_name,
+    servingSize: row.serving_size,
+    servings: row.servings,
+    caloriesKcal: row.calories_kcal,
+    proteinG: row.protein_g,
+    carbohydratesG: row.carbohydrates_g,
+    fatG: row.fat_g,
+    fiberG: row.fiber_g,
     notes: row.notes ?? undefined,
     createdAt: row.created_at,
   };
@@ -431,5 +545,52 @@ export class SupabaseStorage implements LifestyleStorage {
       offset += data.length;
     }
     return metrics;
+  }
+
+  async upsertNutritionProfile(profile: NutritionProfile): Promise<NutritionProfile> {
+    const { data, error } = await this.client
+      .from("nutrition_profiles")
+      .upsert(serializeNutritionProfile(profile), { onConflict: "owner_id" })
+      .select(NUTRITION_PROFILE_SELECT)
+      .single();
+    throwIfError("upsert nutrition profile", error);
+    return deserializeNutritionProfile(data);
+  }
+
+  async getNutritionProfile(ownerId: string): Promise<NutritionProfile | null> {
+    const { data, error } = await this.client
+      .from("nutrition_profiles")
+      .select(NUTRITION_PROFILE_SELECT)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    throwIfError("get nutrition profile", error);
+    return data ? deserializeNutritionProfile(data) : null;
+  }
+
+  async createNutritionEntry(entry: NutritionEntry): Promise<NutritionEntry> {
+    const { error } = await this.client.from("nutrition_entries").insert(serializeNutritionEntry(entry));
+    throwIfError("create nutrition entry", error);
+    return structuredClone(entry);
+  }
+
+  async listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]> {
+    const entries: NutritionEntry[] = [];
+    let offset = 0;
+    while (entries.length < limit) {
+      const pageSize = Math.min(PAGE_SIZE, limit - entries.length);
+      const { data, error } = await this.client
+        .from("nutrition_entries")
+        .select(NUTRITION_ENTRY_SELECT)
+        .eq("owner_id", ownerId)
+        .order("eaten_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+      throwIfError("list nutrition entries", error);
+      if (!data?.length) {
+        break;
+      }
+      entries.push(...data.map(deserializeNutritionEntry));
+      offset += data.length;
+    }
+    return entries;
   }
 }

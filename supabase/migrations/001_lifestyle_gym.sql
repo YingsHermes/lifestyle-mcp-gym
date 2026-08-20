@@ -120,6 +120,9 @@ alter table public.workout_exercises enable row level security;
 alter table public.workout_sets enable row level security;
 alter table public.body_metrics enable row level security;
 
+grant all on table public.humans, public.sessions, public.agents, public.workouts,
+  public.workout_exercises, public.workout_sets, public.body_metrics to service_role;
+
 create or replace function public.create_lifestyle_workout(workout jsonb)
 returns void
 language plpgsql

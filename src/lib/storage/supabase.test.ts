@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { Agent, BodyMetric, Session, User } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, Session, User } from "@/lib/domain";
 import { createStorageRuntime } from "@/lib/storage";
 import { JsonFileStorage } from "@/lib/storage/file";
 import { MemoryStorage } from "@/lib/storage/memory";
 import {
   deserializeAgent,
   deserializeBodyMetric,
+  deserializeDashboardAccessLink,
   deserializeHuman,
   deserializeSession,
   deserializeWorkout,
   serializeAgent,
   serializeBodyMetric,
+  serializeDashboardAccessLink,
   serializeHuman,
   serializeSession,
   SupabaseStorage,
@@ -102,6 +104,23 @@ describe("Supabase row serialization", () => {
     expect(row.last_used_at).toBeNull();
     expect(deserializeAgent(row)).toEqual(agent);
   });
+  it("round-trips dashboard access links through hashed-token columns", () => {
+    const link: AgentDashboardLink = {
+      id: "dashboard_link_1",
+      ownerId: "user_1",
+      agentId: "agent_1",
+      tokenHash: "sha256-dashboard-token-hash",
+      expiresAt: "2026-08-20T12:10:00.000Z",
+      createdAt,
+    };
+    const row = serializeDashboardAccessLink(link);
+
+    expect(row.token_hash).toBe(link.tokenHash);
+    expect(row).not.toHaveProperty("token");
+    expect(row.used_at).toBeNull();
+    expect(deserializeDashboardAccessLink(row)).toEqual(link);
+  });
+
 
   it("rebuilds normalized workouts in their stored positions", () => {
     const workout = deserializeWorkout({

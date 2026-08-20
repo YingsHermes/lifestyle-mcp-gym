@@ -2,6 +2,7 @@ import { z, ZodError } from "zod";
 import {
   agentRegistrationSchema,
   bodyMetricInputSchema,
+  dashboardLinkInputSchema,
   workoutInputSchema,
   type AgentScope,
 } from "@/lib/domain";
@@ -48,7 +49,7 @@ const tools: ToolDefinition[] = [
       required: ["name", "scopes", "capabilities"],
       properties: {
         name: { type: "string", minLength: 2, maxLength: 80 },
-        scopes: { type: "array", minItems: 1, items: { enum: ["workouts:read", "workouts:write", "metrics:read", "metrics:write"] } },
+        scopes: { type: "array", minItems: 1, items: { enum: ["workouts:read", "workouts:write", "metrics:read", "metrics:write", "dashboard:link"] } },
         capabilities: { type: "array", minItems: 1, items: { type: "string" } },
         webhookUrl: { type: "string", format: "uri", pattern: "^https://" },
         ownerMetadata: { type: "object", additionalProperties: { type: "string" } },
@@ -122,6 +123,17 @@ const tools: ToolDefinition[] = [
       },
     },
   },
+  {
+    name: "create_dashboard_link",
+    description: "Create a short-lived, single-use dashboard sign-in link for the agent owner.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        ttlMinutes: { type: "integer", minimum: 1, maximum: 30, default: 10 },
+      },
+    },
+  },
 ];
 
 function success(id: RpcId, result: unknown): McpHttpResult {
@@ -163,6 +175,7 @@ function scopesForTool(toolName: string): AgentScope[] | null {
     list_workouts: ["workouts:read"],
     get_stats: ["workouts:read", "metrics:read"],
     record_body_metrics: ["metrics:write"],
+    create_dashboard_link: ["dashboard:link"],
   };
   return scopes[toolName] ?? null;
 }
@@ -172,6 +185,7 @@ async function callTool(
   rawArguments: unknown,
   bearerToken: string | undefined,
   service: LifestyleService,
+  options: McpRequestOptions,
 ): Promise<unknown> {
   const principal = await authenticatedPrincipal(bearerToken, service);
 
@@ -191,6 +205,13 @@ async function callTool(
     ownerId = service.requireAgentScope(principal, scope);
   }
   const agentId = principal.kind === "agent" ? principal.agent.id : undefined;
+  if (toolName === "create_dashboard_link") {
+    if (!options.appBaseUrl) {
+      throw new AppError(500, "app_url_unavailable", "Dashboard links are not configured");
+    }
+    return service.createDashboardLink(principal, dashboardLinkInputSchema.parse(rawArguments), options.appBaseUrl);
+  }
+
 
   if (toolName === "log_workout") {
     return service.logWorkout(ownerId, workoutInputSchema.parse(rawArguments), agentId);
@@ -206,10 +227,15 @@ async function callTool(
   return service.recordBodyMetric(ownerId, bodyMetricInputSchema.parse(rawArguments), agentId);
 }
 
+export interface McpRequestOptions {
+  appBaseUrl?: string;
+}
+
 export async function handleMcpRequest(
   rawRequest: unknown,
   bearerToken: string | undefined,
   service: LifestyleService,
+  options: McpRequestOptions = {},
 ): Promise<McpHttpResult> {
   const parsedRequest = rpcRequestSchema.safeParse(rawRequest);
   if (!parsedRequest.success) {
@@ -234,7 +260,7 @@ export async function handleMcpRequest(
     }
     if (request.method === "tools/call") {
       const call = toolCallSchema.parse(request.params);
-      const value = await callTool(call.name, call.arguments, bearerToken, service);
+      const value = await callTool(call.name, call.arguments, bearerToken, service, options);
       return success(id, toolResult(value));
     }
     return failure(id, 404, -32601, "Method not found");

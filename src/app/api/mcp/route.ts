@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assertSameOrigin, bearerTokenFromRequest, SESSION_COOKIE } from "@/lib/api";
+import { assertSameOrigin, bearerTokenFromRequest, resolveAppBaseUrl, SESSION_COOKIE } from "@/lib/api";
 import { handleMcpRequest } from "@/lib/mcp";
 import { getLifestyleService } from "@/lib/runtime";
 
@@ -29,7 +29,12 @@ export async function POST(request: NextRequest) {
       );
     }
   }
-  const result = await handleMcpRequest(payload, authorizationToken ?? sessionToken, getLifestyleService());
+  const result = await handleMcpRequest(
+    payload,
+    authorizationToken ?? sessionToken,
+    getLifestyleService(),
+    { appBaseUrl: resolveAppBaseUrl(request) },
+  );
   return NextResponse.json(result.body, {
     status: result.status,
     headers: {

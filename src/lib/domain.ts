@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const experienceLevels = ["beginner", "intermediate", "advanced"] as const;
-export const agentScopes = ["workouts:read", "workouts:write", "metrics:read", "metrics:write"] as const;
+export const agentScopes = ["workouts:read", "workouts:write", "metrics:read", "metrics:write", "dashboard:link"] as const;
 
 const validTimezone = (value: string) => {
   try {
@@ -40,6 +40,10 @@ export const agentRegistrationSchema = z.object({
   capabilities: z.array(safeText(2, 60)).min(1).max(12),
   webhookUrl: z.string().url().max(2048).refine((value) => value.startsWith("https://"), "Webhook URL must use HTTPS").optional(),
   ownerMetadata: z.record(z.string().max(80), z.string().max(200)).optional(),
+}).strict();
+
+export const dashboardLinkInputSchema = z.object({
+  ttlMinutes: z.number().int().min(1).max(30).optional().default(10),
 }).strict();
 
 const setInputSchema = z
@@ -86,6 +90,7 @@ export const bodyMetricInputSchema = z
 export type HumanRegistrationInput = z.infer<typeof humanRegistrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AgentRegistrationInput = z.infer<typeof agentRegistrationSchema>;
+export type DashboardLinkInput = z.input<typeof dashboardLinkInputSchema>;
 export type WorkoutInput = z.infer<typeof workoutInputSchema>;
 export type BodyMetricInput = z.infer<typeof bodyMetricInputSchema>;
 export type AgentScope = (typeof agentScopes)[number];
@@ -122,6 +127,16 @@ export interface Agent {
   ownerMetadata?: Record<string, string>;
   createdAt: string;
   lastUsedAt?: string;
+}
+
+export interface AgentDashboardLink {
+  id: string;
+  ownerId: string;
+  agentId: string;
+  tokenHash: string;
+  expiresAt: string;
+  usedAt?: string;
+  createdAt: string;
 }
 
 export interface WorkoutSet {

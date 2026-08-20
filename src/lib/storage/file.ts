@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Agent, BodyMetric, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, Session, User, Workout } from "@/lib/domain";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { storageDocumentSchema } from "@/lib/storage/schema";
 
@@ -98,6 +98,14 @@ export class JsonFileStorage extends MemoryStorage {
   override async touchAgent(id: string, lastUsedAt: string): Promise<void> {
     return this.mutate(() => super.touchAgent(id, lastUsedAt));
   }
+  override async createAgentDashboardLink(link: AgentDashboardLink): Promise<AgentDashboardLink> {
+    return this.mutate(() => super.createAgentDashboardLink(link));
+  }
+
+  override async consumeAgentDashboardLink(tokenHash: string, usedAt: string): Promise<AgentDashboardLink | null> {
+    return this.mutate(() => super.consumeAgentDashboardLink(tokenHash, usedAt));
+  }
+
 
   override async createWorkout(workout: Workout): Promise<Workout> {
     return this.mutate(() => super.createWorkout(workout));

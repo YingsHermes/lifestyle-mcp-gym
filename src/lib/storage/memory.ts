@@ -1,4 +1,4 @@
-import type { Agent, BodyMetric, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, Session, User, Workout } from "@/lib/domain";
 import { emptyStorageDocument, StorageConflictError, type LifestyleStorage, type StorageDocument } from "@/lib/storage/types";
 
 export class MemoryStorage implements LifestyleStorage {
@@ -63,6 +63,23 @@ export class MemoryStorage implements LifestyleStorage {
       agent.lastUsedAt = lastUsedAt;
     }
   }
+  async createAgentDashboardLink(link: AgentDashboardLink): Promise<AgentDashboardLink> {
+    if (this.document.agentDashboardLinks.some((candidate) => candidate.tokenHash === link.tokenHash)) {
+      throw new StorageConflictError("Dashboard access link token hash already exists");
+    }
+    this.document.agentDashboardLinks.push(structuredClone(link));
+    return structuredClone(link);
+  }
+
+  async consumeAgentDashboardLink(tokenHash: string, usedAt: string): Promise<AgentDashboardLink | null> {
+    const link = this.document.agentDashboardLinks.find((candidate) => candidate.tokenHash === tokenHash);
+    if (!link || link.usedAt || new Date(link.expiresAt).getTime() <= new Date(usedAt).getTime()) {
+      return null;
+    }
+    link.usedAt = usedAt;
+    return structuredClone(link);
+  }
+
 
   async createWorkout(workout: Workout): Promise<Workout> {
     this.document.workouts.push(structuredClone(workout));

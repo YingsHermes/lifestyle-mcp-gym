@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { hashCredential } from "@/lib/auth";
+import { hashCredential, hashToken } from "@/lib/auth";
 import { JsonFileStorage } from "@/lib/storage/file";
 import { StorageConflictError } from "@/lib/storage/types";
 
@@ -65,6 +65,34 @@ describe("JsonFileStorage", () => {
     expect(persisted).not.toContain("raw-agent-secret");
     expect(persisted).toContain("secretHash");
   });
+  it("persists only dashboard link hashes and consumes links once", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "lifestyle-gym-"));
+    tempDirectories.push(directory);
+    const file = join(directory, "store.json");
+    const storage = new JsonFileStorage(file);
+    const rawToken = "raw-dashboard-access-token";
+    const link = {
+      id: "link_1",
+      ownerId: "user_1",
+      agentId: "agent_1",
+      tokenHash: hashToken(rawToken),
+      expiresAt: "2026-08-20T12:10:00.000Z",
+      createdAt: "2026-08-20T12:00:00.000Z",
+    };
+
+    await storage.createAgentDashboardLink(link);
+
+    const persisted = await readFile(file, "utf8");
+    expect(persisted).not.toContain(rawToken);
+    expect(persisted).toContain(link.tokenHash);
+    await expect(
+      storage.consumeAgentDashboardLink(link.tokenHash, "2026-08-20T12:05:00.000Z"),
+    ).resolves.toMatchObject({ ownerId: "user_1", agentId: "agent_1" });
+    await expect(
+      storage.consumeAgentDashboardLink(link.tokenHash, "2026-08-20T12:06:00.000Z"),
+    ).resolves.toBeNull();
+  });
+
 
   it("serializes user creation and rejects duplicate emails", async () => {
     const directory = await mkdtemp(join(tmpdir(), "lifestyle-gym-"));

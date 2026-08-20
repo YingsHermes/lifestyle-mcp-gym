@@ -1,7 +1,18 @@
+import { z } from "zod";
 import { describe, expect, it } from "vitest";
 import { LifestyleService } from "@/lib/service";
 import { handleMcpRequest } from "@/lib/mcp";
 import { MemoryStorage } from "@/lib/storage/memory";
+const listedToolsResponseSchema = z.object({
+  result: z.object({ tools: z.array(z.object({ name: z.string() })) }),
+});
+
+const registeredAgentResponseSchema = z.object({
+  result: z.object({
+    structuredContent: z.object({ agentId: z.string(), secret: z.string() }),
+  }),
+});
+
 
 async function registeredService() {
   const storage = new MemoryStorage();
@@ -49,13 +60,14 @@ describe("MCP JSON-RPC surface", () => {
       undefined,
       service,
     );
-    const toolNames = (listed.body as { result: { tools: Array<{ name: string }> } }).result.tools.map((tool) => tool.name);
+    const toolNames = listedToolsResponseSchema.parse(listed.body).result.tools.map((tool) => tool.name);
     expect(toolNames).toEqual([
       "register_agent",
       "log_workout",
       "list_workouts",
       "get_stats",
       "record_body_metrics",
+      "create_dashboard_link",
     ]);
   });
 
@@ -96,7 +108,7 @@ describe("MCP JSON-RPC surface", () => {
       service,
     );
     expect(created.status).toBe(200);
-    const structured = (created.body as { result: { structuredContent: { agentId: string; secret: string } } }).result.structuredContent;
+    const structured = registeredAgentResponseSchema.parse(created.body).result.structuredContent;
     expect(structured.secret).toMatch(new RegExp(`^${structured.agentId}\\.`));
 
     const logged = await handleMcpRequest(

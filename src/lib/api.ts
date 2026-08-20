@@ -78,6 +78,24 @@ export function bearerTokenFromRequest(request: NextRequest): string | undefined
   const token = authorization.slice(7).trim();
   return token || undefined;
 }
+export function resolveAppBaseUrl(
+  request: NextRequest,
+  environment: { NEXT_PUBLIC_APP_URL?: string; VERCEL_URL?: string } = process.env as { NEXT_PUBLIC_APP_URL?: string; VERCEL_URL?: string },
+): string {
+  const configuredUrl = environment.NEXT_PUBLIC_APP_URL?.trim();
+  const vercelHost = environment.VERCEL_URL?.trim();
+  const candidate = configuredUrl || (vercelHost ? `https://${vercelHost}` : request.nextUrl.origin);
+  try {
+    const url = new URL(candidate);
+    if ((url.protocol !== "https:" && url.protocol !== "http:") || !url.host) {
+      throw new Error("Unsupported app URL");
+    }
+    return url.origin;
+  } catch {
+    throw new AppError(500, "invalid_app_url", "Dashboard links are not configured");
+  }
+}
+
 
 export async function apiResponse(operation: () => Promise<NextResponse>): Promise<NextResponse> {
   try {

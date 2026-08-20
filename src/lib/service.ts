@@ -3,6 +3,7 @@ import {
   agentRegistrationSchema,
   bodyMetricInputSchema,
   calculateStats,
+  dashboardLinkInputSchema,
   humanRegistrationSchema,
   loginSchema,
   workoutInputSchema,
@@ -11,6 +12,7 @@ import {
   type AgentScope,
   type BodyMetric,
   type BodyMetricInput,
+  type DashboardLinkInput,
   type HumanRegistrationInput,
   type LoginInput,
   type User,
@@ -96,6 +98,7 @@ function publicAgent(agent: Agent): PublicAgent {
 function createId(prefix: string): string {
   return `${prefix}_${randomBytes(12).toString("base64url")}`;
 }
+
 
 export class LifestyleService {
   private readonly storage: LifestyleStorage;
@@ -244,6 +247,58 @@ export class LifestyleService {
     }
     return principal.ownerId;
   }
+  async createDashboardLink(
+    principal: AuthenticatedPrincipal,
+    rawInput: DashboardLinkInput,
+    appBaseUrl: string,
+  ): Promise<{ url: string; expiresAt: string }> {
+    const ownerId = this.requireAgentScope(principal, "dashboard:link");
+    if (principal.kind !== "agent") {
+      throw new AppError(403, "forbidden", "This operation requires an agent credential");
+    }
+    let appOrigin: string;
+    try {
+      const appUrl = new URL(appBaseUrl);
+      if (appUrl.protocol !== "https:" && appUrl.protocol !== "http:") {
+        throw new Error("Unsupported dashboard URL protocol");
+      }
+      appOrigin = appUrl.origin;
+    } catch {
+      throw new AppError(500, "invalid_app_url", "Dashboard links are not configured");
+    }
+    const input = dashboardLinkInputSchema.parse(rawInput);
+    const token = generateOpaqueToken();
+    const createdAt = this.now();
+    const expiresAt = new Date(createdAt.getTime() + input.ttlMinutes * 60_000).toISOString();
+    await this.storage.createAgentDashboardLink({
+      id: createId("dashboard_link"),
+      ownerId,
+      agentId: principal.agent.id,
+      tokenHash: hashToken(token),
+      expiresAt,
+      createdAt: createdAt.toISOString(),
+    });
+
+    const url = new URL("/auth/agent-link", appOrigin);
+    url.searchParams.set("token", token);
+    return { url: url.toString(), expiresAt };
+  }
+
+  async consumeDashboardLink(token: string): Promise<{ user: PublicUser; sessionToken: string }> {
+    if (!/^[A-Za-z0-9_-]{40,128}$/.test(token)) {
+      throw new AppError(401, "invalid_agent_link", "This dashboard link is invalid or expired");
+    }
+    const link = await this.storage.consumeAgentDashboardLink(hashToken(token), this.now().toISOString());
+    if (!link) {
+      throw new AppError(401, "invalid_agent_link", "This dashboard link is invalid or expired");
+    }
+    const user = await this.storage.getUser(link.ownerId);
+    if (!user) {
+      throw new AppError(401, "invalid_agent_link", "This dashboard link is invalid or expired");
+    }
+    return { user: publicUser(user), sessionToken: await this.issueSession(user.id) };
+  }
+
 
   async logWorkout(ownerId: string, rawInput: WorkoutInput, agentId?: string): Promise<Workout> {
     const input = workoutInputSchema.parse(rawInput);

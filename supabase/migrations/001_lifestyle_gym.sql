@@ -40,6 +40,19 @@ create table if not exists public.agents (
   constraint lifestyle_agents_owner_key unique (id, owner_id),
   constraint lifestyle_agents_owner_metadata_object check (owner_metadata is null or jsonb_typeof(owner_metadata) = 'object')
 );
+create table if not exists public.dashboard_access_links (
+  id text primary key,
+  owner_id text not null references public.humans(id) on delete cascade,
+  agent_id text not null,
+  token_hash text not null,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint lifestyle_dashboard_access_links_token_hash_key unique (token_hash),
+  constraint lifestyle_dashboard_access_links_agent_owner_fk foreign key (agent_id, owner_id)
+    references public.agents(id, owner_id) on delete cascade
+);
+
 
 create table if not exists public.workouts (
   id text primary key,
@@ -99,6 +112,12 @@ create index if not exists lifestyle_sessions_expires_idx
   on public.sessions (expires_at);
 create index if not exists lifestyle_agents_owner_created_idx
   on public.agents (owner_id, created_at desc);
+create index if not exists lifestyle_dashboard_access_links_owner_created_idx
+  on public.dashboard_access_links (owner_id, created_at desc);
+create index if not exists lifestyle_dashboard_access_links_agent_created_idx
+  on public.dashboard_access_links (agent_id, created_at desc);
+create index if not exists lifestyle_dashboard_access_links_expires_idx
+  on public.dashboard_access_links (expires_at) where used_at is null;
 create index if not exists lifestyle_workouts_owner_occurred_idx
   on public.workouts (owner_id, occurred_at desc);
 create index if not exists lifestyle_workouts_agent_idx
@@ -115,13 +134,14 @@ create index if not exists lifestyle_body_metrics_agent_idx
 alter table public.humans enable row level security;
 alter table public.sessions enable row level security;
 alter table public.agents enable row level security;
+alter table public.dashboard_access_links enable row level security;
 alter table public.workouts enable row level security;
 alter table public.workout_exercises enable row level security;
 alter table public.workout_sets enable row level security;
 alter table public.body_metrics enable row level security;
 
-grant all on table public.humans, public.sessions, public.agents, public.workouts,
-  public.workout_exercises, public.workout_sets, public.body_metrics to service_role;
+grant all on table public.humans, public.sessions, public.agents, public.dashboard_access_links,
+  public.workouts, public.workout_exercises, public.workout_sets, public.body_metrics to service_role;
 
 create or replace function public.create_lifestyle_workout(workout jsonb)
 returns void
@@ -176,5 +196,26 @@ $$;
 
 revoke all on function public.create_lifestyle_workout(jsonb) from public, anon, authenticated;
 grant execute on function public.create_lifestyle_workout(jsonb) to service_role;
+create or replace function public.consume_dashboard_access_link(
+  p_token_hash text,
+  p_used_at timestamptz
+)
+returns setof public.dashboard_access_links
+language sql
+set search_path = public
+as $$
+  update public.dashboard_access_links
+  set used_at = p_used_at
+  where token_hash = p_token_hash
+    and used_at is null
+    and expires_at > p_used_at
+  returning *;
+$$;
+
+revoke all on function public.consume_dashboard_access_link(text, timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.consume_dashboard_access_link(text, timestamptz)
+  to service_role;
+
 
 commit;

@@ -34,6 +34,16 @@ const agentSchema = z.object({
   lastUsedAt: z.string().optional(),
 });
 
+const agentDashboardLinkSchema = z.object({
+  id: z.string(),
+  ownerId: z.string(),
+  agentId: z.string(),
+  tokenHash: z.string(),
+  expiresAt: z.string(),
+  usedAt: z.string().optional(),
+  createdAt: z.string(),
+});
+
 const setSchema = z.object({
   id: z.string(),
   reps: z.number().optional(),
@@ -71,6 +81,7 @@ export const storageDocumentSchema = z.object({
   users: z.array(userSchema),
   sessions: z.array(sessionSchema),
   agents: z.array(agentSchema),
+  agentDashboardLinks: z.array(agentDashboardLinkSchema).default([]),
   workouts: z.array(workoutSchema),
   bodyMetrics: z.array(bodyMetricSchema),
 });

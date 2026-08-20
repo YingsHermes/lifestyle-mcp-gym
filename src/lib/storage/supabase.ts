@@ -4,6 +4,7 @@ import {
   agentScopes,
   experienceLevels,
   type Agent,
+  type AgentDashboardLink,
   type BodyMetric,
   type Session,
   type User,
@@ -43,6 +44,16 @@ const agentRowSchema = z.object({
   created_at: z.string(),
   last_used_at: z.string().nullable(),
 });
+const dashboardAccessLinkRowSchema = z.object({
+  id: z.string(),
+  owner_id: z.string(),
+  agent_id: z.string(),
+  token_hash: z.string(),
+  expires_at: z.string(),
+  used_at: z.string().nullable(),
+  created_at: z.string(),
+});
+
 
 const workoutSetRowSchema = z.object({
   id: z.string(),
@@ -171,6 +182,31 @@ export function deserializeAgent(value: unknown): Agent {
     lastUsedAt: row.last_used_at ?? undefined,
   };
 }
+export function serializeDashboardAccessLink(link: AgentDashboardLink) {
+  return {
+    id: link.id,
+    owner_id: link.ownerId,
+    agent_id: link.agentId,
+    token_hash: link.tokenHash,
+    expires_at: link.expiresAt,
+    used_at: link.usedAt ?? null,
+    created_at: link.createdAt,
+  };
+}
+
+export function deserializeDashboardAccessLink(value: unknown): AgentDashboardLink {
+  const row = dashboardAccessLinkRowSchema.parse(value);
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    agentId: row.agent_id,
+    tokenHash: row.token_hash,
+    expiresAt: row.expires_at,
+    usedAt: row.used_at ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
 
 export function deserializeWorkout(value: unknown): Workout {
   const row = workoutRowSchema.parse(value);
@@ -323,6 +359,25 @@ export class SupabaseStorage implements LifestyleStorage {
     const { error } = await this.client.from("agents").update({ last_used_at: lastUsedAt }).eq("id", id);
     throwIfError("touch agent", error);
   }
+  async createAgentDashboardLink(link: AgentDashboardLink): Promise<AgentDashboardLink> {
+    const { error } = await this.client.from("dashboard_access_links").insert(serializeDashboardAccessLink(link));
+    if (error?.code === "23505") {
+      throw new StorageConflictError("Dashboard access link token hash already exists");
+    }
+    throwIfError("create dashboard access link", error);
+    return structuredClone(link);
+  }
+
+  async consumeAgentDashboardLink(tokenHash: string, usedAt: string): Promise<AgentDashboardLink | null> {
+    const { data, error } = await this.client.rpc("consume_dashboard_access_link", {
+      p_token_hash: tokenHash,
+      p_used_at: usedAt,
+    });
+    throwIfError("consume dashboard access link", error);
+    const rows = z.array(dashboardAccessLinkRowSchema).parse(data ?? []);
+    return rows[0] ? deserializeDashboardAccessLink(rows[0]) : null;
+  }
+
 
   async createWorkout(workout: Workout): Promise<Workout> {
     const { error } = await this.client.rpc("create_lifestyle_workout", { workout });

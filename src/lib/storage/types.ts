@@ -1,4 +1,4 @@
-import type { Agent, BodyMetric, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, Session, User, Workout } from "@/lib/domain";
 export class StorageConflictError extends Error {}
 
 
@@ -13,6 +13,8 @@ export interface LifestyleStorage {
   getAgent(id: string): Promise<Agent | null>;
   listAgents(ownerId: string): Promise<Agent[]>;
   touchAgent(id: string, lastUsedAt: string): Promise<void>;
+  createAgentDashboardLink(link: AgentDashboardLink): Promise<AgentDashboardLink>;
+  consumeAgentDashboardLink(tokenHash: string, usedAt: string): Promise<AgentDashboardLink | null>;
   createWorkout(workout: Workout): Promise<Workout>;
   listWorkouts(ownerId: string, limit: number): Promise<Workout[]>;
   createBodyMetric(metric: BodyMetric): Promise<BodyMetric>;
@@ -24,6 +26,7 @@ export interface StorageDocument {
   users: User[];
   sessions: Session[];
   agents: Agent[];
+  agentDashboardLinks: AgentDashboardLink[];
   workouts: Workout[];
   bodyMetrics: BodyMetric[];
 }
@@ -34,6 +37,7 @@ export function emptyStorageDocument(): StorageDocument {
     users: [],
     sessions: [],
     agents: [],
+    agentDashboardLinks: [],
     workouts: [],
     bodyMetrics: [],
   };

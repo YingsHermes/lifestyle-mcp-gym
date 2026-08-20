@@ -66,7 +66,7 @@ export const workoutCreatedResponseSchema = z.object({ workout: workoutSchema })
 export const metricCreatedResponseSchema = z.object({ metric: metricSchema });
 export const statusResponseSchema = z.object({
   status: z.literal("ok"),
-  storage: z.object({ mode: z.enum(["file", "memory"]), durable: z.boolean(), notice: z.string() }),
+  storage: z.object({ mode: z.enum(["file", "memory", "supabase"]), durable: z.boolean(), notice: z.string() }),
 });
 
 const apiErrorResponseSchema = z.object({

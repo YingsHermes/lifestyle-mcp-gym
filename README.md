@@ -36,11 +36,30 @@ Memory storage resets when the server process restarts.
 
 See `.env.example`:
 
-- `LIFESTYLE_STORAGE_DRIVER`: `file` or `memory`.
+- `SUPABASE_URL`: project URL from the Supabase API settings.
+- `SUPABASE_SERVICE_ROLE_KEY`: service-role secret from the Supabase API settings.
+- `LIFESTYLE_STORAGE_DRIVER`: local fallback, either `file` or `memory`.
 - `LIFESTYLE_DATA_FILE`: optional path for local JSON storage.
-- `SESSION_SECRET`: optional secret for signing sessions; set a long random value outside local demo use.
 
-The current MVP intentionally does **not** claim durable production persistence on Vercel. Vercel serverless instances do not guarantee writes to the local filesystem, so the runtime reports that limitation and defaults to process-local memory when `VERCEL` is set. Before production use, add a durable adapter behind `LifestyleStorage` (for example, a managed Postgres/SQLite-compatible service) and set the deployment's environment variables.
+When both Supabase variables are present, the server automatically selects `SupabaseStorage`; otherwise the existing file/memory behavior remains. On Vercel, the fallback is process-local memory unless the file driver is explicitly selected.
+
+**Security:** `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never prefix it with `NEXT_PUBLIC_`, import the storage adapter into client code, print the key, or commit it. The app stores password hashes, session-token hashes, and agent-secret hashes; raw agent secrets are returned only once.
+
+## Supabase setup
+
+1. Create a Supabase project.
+2. Link the Supabase CLI to the project and apply the checked-in migration:
+
+   ```bash
+   npx supabase@latest link --project-ref YOUR_PROJECT_REF
+   npx supabase@latest db push
+   ```
+
+   Alternatively, run `supabase/migrations/001_lifestyle_gym.sql` once in the project's SQL editor. The migration is safe to rerun.
+3. Copy the project URL and service-role key into `.env.local` for a local Supabase-backed server.
+4. Restart the Next.js server and confirm `/api/status` reports storage mode `supabase`.
+
+The migration creates normalized humans, sessions, agents, workouts, workout exercises/sets, and body metrics. Row Level Security is enabled on every table. There are intentionally no public policies: this custom-auth MVP accesses the schema only through the server-side service-role client, which bypasses RLS.
 
 ## MCP quickstart
 
@@ -70,7 +89,14 @@ npm run build
 
 ## Deploy to Vercel
 
-Install or invoke the CLI, then deploy a preview:
+Set these Vercel environment variables for every environment that should use persistent storage:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Use the Vercel dashboard or `vercel env add`; keep the service-role value out of command history and deployment logs. Do not create a `NEXT_PUBLIC_` copy.
+
+Then deploy a preview:
 
 ```bash
 npx vercel@latest --token "$VERCEL_TOKEN" --yes
@@ -84,7 +110,7 @@ Use `--prod` only for an intentional production deployment. Verify the returned 
 - `src/app/api/`: Next.js route handlers for auth, workouts, metrics, stats, agents, status, and MCP.
 - `src/lib/domain.ts`: validated domain input schemas and stat calculations.
 - `src/lib/service.ts`: auth, authorization, and application operations.
-- `src/lib/storage/`: storage interface plus local JSON and in-memory adapters.
+- `src/lib/storage/`: storage interface plus Supabase, local JSON, and in-memory adapters.
 - `src/lib/mcp.ts`: JSON-RPC/MCP request validation, tools, auth, and scope enforcement.
 
-The storage interface is the extension point for adding durable persistence without changing the UI or MCP contract.
+`LifestyleStorage` keeps domain, service, UI, and MCP behavior independent of the selected persistence adapter.

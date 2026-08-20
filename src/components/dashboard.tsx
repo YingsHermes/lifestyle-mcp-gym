@@ -132,7 +132,7 @@ export function Dashboard({ user, onSignedOut }: { user: PublicUser; onSignedOut
       <header className="dashboard-topbar">
         <Brand />
         <div className="topbar-right">
-          {data?.storage && <span className={`storage-badge ${data.storage.durable ? "storage-durable" : "storage-demo"}`} title={data.storage.notice}><span className="status-dot" />{data.storage.durable ? "Local file" : "Demo storage"}</span>}
+          {data?.storage && <span className={`storage-badge ${data.storage.durable ? "storage-durable" : "storage-demo"}`} title={data.storage.notice}><span className="status-dot" />{data.storage.mode === "supabase" ? "Supabase" : data.storage.durable ? "Local file" : "Demo storage"}</span>}
           <span className="user-chip"><span>{user.name.slice(0, 1).toUpperCase()}</span><span><strong>{user.name}</strong><small>{user.email}</small></span></span>
           <button className="text-button" type="button" onClick={logout}>Sign out</button>
         </div>

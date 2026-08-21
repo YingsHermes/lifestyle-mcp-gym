@@ -86,6 +86,10 @@ export const workoutListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 }).strict();
 
+export const bodyMetricListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+}).strict();
+
 export const bodyMetricInputSchema = z
   .object({
     recordedAt: z.string().datetime({ offset: true }),

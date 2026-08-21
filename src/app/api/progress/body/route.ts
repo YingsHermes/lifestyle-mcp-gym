@@ -7,8 +7,8 @@ export async function GET(request: NextRequest) {
   return apiResponse(async () => {
     const user = await requireHuman(request);
     const range = progressRangeQuerySchema.parse({
-      from: request.nextUrl.searchParams.get("from") ?? undefined,
-      to: request.nextUrl.searchParams.get("to") ?? undefined,
+      from: request.nextUrl.searchParams.get("from") || undefined,
+      to: request.nextUrl.searchParams.get("to") || undefined,
     });
     return NextResponse.json({ summary: await getLifestyleService().getBodyProgress(user.id, range) });
   });

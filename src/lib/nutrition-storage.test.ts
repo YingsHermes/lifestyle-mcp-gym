@@ -47,6 +47,7 @@ const entry: NutritionEntry = {
   fiberG: 11,
   notes: "User-entered totals",
   createdAt: "2026-08-20T12:31:00.000Z",
+  updatedAt: "2026-08-20T12:31:00.000Z",
 };
 
 describe.each([

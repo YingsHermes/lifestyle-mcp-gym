@@ -1,5 +1,5 @@
 import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
-import { emptyStorageDocument, StorageConflictError, type LifestyleStorage, type StorageDocument } from "@/lib/storage/types";
+import { emptyStorageDocument, StorageConflictError, type LifestyleStorage, type NutritionEntryUpdate, type StorageDocument } from "@/lib/storage/types";
 
 export class MemoryStorage implements LifestyleStorage {
   protected document: StorageDocument;
@@ -133,5 +133,20 @@ export class MemoryStorage implements LifestyleStorage {
       .sort((left, right) => right.eatenAt.localeCompare(left.eatenAt))
       .slice(0, limit)
       .map((entry) => structuredClone(entry));
+  }
+
+  async updateNutritionEntry(ownerId: string, entryId: string, patch: NutritionEntryUpdate): Promise<NutritionEntry | null> {
+    const index = this.document.nutritionEntries.findIndex((entry) => entry.id === entryId && entry.ownerId === ownerId);
+    if (index < 0) return null;
+    const updated = { ...this.document.nutritionEntries[index], ...structuredClone(patch) };
+    this.document.nutritionEntries[index] = updated;
+    return structuredClone(updated);
+  }
+
+  async deleteNutritionEntry(ownerId: string, entryId: string): Promise<NutritionEntry | null> {
+    const index = this.document.nutritionEntries.findIndex((entry) => entry.id === entryId && entry.ownerId === ownerId);
+    if (index < 0) return null;
+    const [deleted] = this.document.nutritionEntries.splice(index, 1);
+    return structuredClone(deleted);
   }
 }

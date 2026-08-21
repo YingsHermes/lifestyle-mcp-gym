@@ -1,5 +1,7 @@
-import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, FoodLogPatchInput, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 export class StorageConflictError extends Error {}
+
+export type NutritionEntryUpdate = FoodLogPatchInput & { updatedAt: string };
 
 
 export interface LifestyleStorage {
@@ -23,6 +25,8 @@ export interface LifestyleStorage {
   getNutritionProfile(ownerId: string): Promise<NutritionProfile | null>;
   createNutritionEntry(entry: NutritionEntry): Promise<NutritionEntry>;
   listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]>;
+  updateNutritionEntry(ownerId: string, entryId: string, patch: NutritionEntryUpdate): Promise<NutritionEntry | null>;
+  deleteNutritionEntry(ownerId: string, entryId: string): Promise<NutritionEntry | null>;
 }
 
 export interface StorageDocument {

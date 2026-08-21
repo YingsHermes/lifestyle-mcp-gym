@@ -106,7 +106,8 @@ const nutritionEntrySchema = z.object({
   fiberG: z.number(),
   notes: z.string().optional(),
   createdAt: z.string(),
-});
+  updatedAt: z.string().optional(),
+}).transform((entry) => ({ ...entry, updatedAt: entry.updatedAt ?? entry.createdAt }));
 
 export const storageDocumentSchema = z.object({
   version: z.literal(1),

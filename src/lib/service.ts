@@ -5,10 +5,12 @@ import {
   calculateStats,
   dashboardLinkInputSchema,
   foodLogInputSchema,
+  foodLogPatchSchema,
   foodLogListQuerySchema,
   humanRegistrationSchema,
   loginSchema,
   nutritionProfileInputSchema,
+  progressRangeQuerySchema,
   workoutInputSchema,
   type Agent,
   type AgentRegistrationInput,
@@ -17,6 +19,7 @@ import {
   type BodyMetricInput,
   type DashboardLinkInput,
   type FoodLogInput,
+  type FoodLogPatchInput,
   type FoodLogListQuery,
   type HumanRegistrationInput,
   type LoginInput,
@@ -24,6 +27,7 @@ import {
   type NutritionProfile,
   type NutritionProfileInput,
   type ProgressStats,
+  type ProgressRangeQuery,
   type User,
   type Workout,
   type WorkoutInput,
@@ -36,6 +40,7 @@ import {
   NUTRITION_SAFETY_NOTE,
   type NutritionTargetResult,
 } from "@/lib/nutrition-calculations";
+import { calculateBodyProgress, calculateStrengthProgress } from "@/lib/progress-calculations";
 
 export class AppError extends Error {
   readonly status: number;
@@ -424,8 +429,17 @@ export class LifestyleService {
     return this.storage.createWorkout(workout);
   }
 
-  async listWorkouts(ownerId: string, limit = 20): Promise<Workout[]> {
-    return this.storage.listWorkouts(ownerId, Math.min(Math.max(limit, 1), 100));
+  async listWorkouts(ownerId: string, limit = 20, rawRange: ProgressRangeQuery = {}): Promise<Workout[]> {
+    const range = progressRangeQuerySchema.parse(rawRange);
+    const boundedLimit = Math.min(Math.max(limit, 1), 100);
+    if (!range.from && !range.to) return this.storage.listWorkouts(ownerId, boundedLimit);
+    const workouts = await this.storage.listWorkouts(ownerId, 10_000);
+    return workouts
+      .filter((workout) => {
+        const date = workout.occurredAt.slice(0, 10);
+        return (!range.from || date >= range.from) && (!range.to || date <= range.to);
+      })
+      .slice(0, boundedLimit);
   }
 
   async recordBodyMetric(ownerId: string, rawInput: BodyMetricInput, agentId?: string): Promise<BodyMetric> {
@@ -477,18 +491,48 @@ export class LifestyleService {
 
   async logFood(ownerId: string, rawInput: FoodLogInput, agentId?: string): Promise<NutritionEntry> {
     const input = foodLogInputSchema.parse(rawInput);
+    const timestamp = this.now().toISOString();
     return this.storage.createNutritionEntry({
       id: createId("nutrition"),
       ownerId,
       agentId,
       ...input,
-      createdAt: this.now().toISOString(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
     });
   }
 
   async listFoodLog(ownerId: string, rawQuery: FoodLogListQuery = {}): Promise<NutritionEntry[]> {
     const query = foodLogListQuerySchema.parse(rawQuery);
     return this.storage.listNutritionEntries(ownerId, query.limit);
+  }
+
+  async editFood(ownerId: string, entryId: string, rawPatch: FoodLogPatchInput): Promise<NutritionEntry> {
+    const patch = foodLogPatchSchema.parse(rawPatch);
+    const entry = await this.storage.updateNutritionEntry(ownerId, entryId, {
+      ...patch,
+      updatedAt: this.now().toISOString(),
+    });
+    if (!entry) throw new AppError(404, "nutrition_entry_not_found", "Nutrition entry was not found");
+    return entry;
+  }
+
+  async deleteFood(ownerId: string, entryId: string): Promise<NutritionEntry> {
+    const entry = await this.storage.deleteNutritionEntry(ownerId, entryId);
+    if (!entry) throw new AppError(404, "nutrition_entry_not_found", "Nutrition entry was not found");
+    return entry;
+  }
+
+  async getBodyProgress(ownerId: string, rawRange: ProgressRangeQuery = {}) {
+    const range = progressRangeQuerySchema.parse(rawRange);
+    const metrics = await this.storage.listBodyMetrics(ownerId, 10_000);
+    return calculateBodyProgress(metrics, range);
+  }
+
+  async getStrengthProgress(ownerId: string, rawRange: ProgressRangeQuery = {}) {
+    const range = progressRangeQuerySchema.parse(rawRange);
+    const workouts = await this.storage.listWorkouts(ownerId, 10_000);
+    return calculateStrengthProgress(workouts, range, this.now());
   }
 
   async calculateCalorieTargets(ownerId: string, asOfDate?: string): Promise<NutritionTargetResult> {

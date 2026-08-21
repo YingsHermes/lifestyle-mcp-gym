@@ -1,7 +1,8 @@
 import { ZodError } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import { AppError, type PublicUser } from "@/lib/service";
+import { AppError, type AuthenticatedPrincipal, type PublicUser } from "@/lib/service";
 import { getLifestyleService } from "@/lib/runtime";
+import type { AgentScope } from "@/lib/domain";
 
 export const SESSION_COOKIE = "lifestyle_session";
 function noStore(response: NextResponse): NextResponse {
@@ -77,6 +78,22 @@ export function bearerTokenFromRequest(request: NextRequest): string | undefined
   }
   const token = authorization.slice(7).trim();
   return token || undefined;
+}
+
+export async function requireDataOwner(
+  request: NextRequest,
+  agentScope: AgentScope,
+): Promise<{ ownerId: string; agentId?: string }> {
+  const service = getLifestyleService();
+  const bearerToken = bearerTokenFromRequest(request);
+  const principal: AuthenticatedPrincipal = bearerToken
+    ? await service.authenticateBearer(bearerToken)
+    : { kind: "human", user: await requireHuman(request) };
+  if (principal.kind === "human") return { ownerId: principal.user.id };
+  return {
+    ownerId: service.requireAgentScope(principal, agentScope),
+    agentId: principal.agent.id,
+  };
 }
 export function resolveAppBaseUrl(
   request: NextRequest,

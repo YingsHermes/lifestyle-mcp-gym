@@ -16,7 +16,7 @@ import {
   type User,
   type Workout,
 } from "@/lib/domain";
-import { StorageConflictError, type LifestyleStorage } from "@/lib/storage/types";
+import { StorageConflictError, type LifestyleStorage, type NutritionEntryUpdate } from "@/lib/storage/types";
 
 const humanRowSchema = z.object({
   id: z.string(),
@@ -131,6 +131,7 @@ const nutritionEntryRowSchema = z.object({
   fiber_g: z.number(),
   notes: z.string().nullable(),
   created_at: z.string(),
+  updated_at: z.string(),
 });
 
 const HUMAN_SELECT = "id,name,email,password_hash,timezone,goals,experience,consent_at,created_at";
@@ -139,7 +140,7 @@ const AGENT_SELECT = "id,owner_id,name,secret_hash,scopes,capabilities,webhook_u
 const WORKOUT_SELECT = "id,owner_id,agent_id,title,occurred_at,duration_minutes,notes,created_at,workout_exercises(id,position,name,workout_sets(id,position,reps,weight_kg,duration_seconds,notes))";
 const BODY_METRIC_SELECT = "id,owner_id,agent_id,recorded_at,weight_kg,body_fat_percent,waist_cm,notes,created_at";
 const NUTRITION_PROFILE_SELECT = "owner_id,sex,birth_date,height_cm,activity_level,goal,target_rate_kg_per_week,dietary_preferences,allergies,created_at,updated_at";
-const NUTRITION_ENTRY_SELECT = "id,owner_id,agent_id,eaten_at,meal_type,food_name,serving_size,servings,calories_kcal,protein_g,carbohydrates_g,fat_g,fiber_g,notes,created_at";
+const NUTRITION_ENTRY_SELECT = "id,owner_id,agent_id,eaten_at,meal_type,food_name,serving_size,servings,calories_kcal,protein_g,carbohydrates_g,fat_g,fiber_g,notes,created_at,updated_at";
 const PAGE_SIZE = 1_000;
 
 export function serializeHuman(user: User) {
@@ -356,6 +357,7 @@ export function serializeNutritionEntry(entry: NutritionEntry) {
     fiber_g: entry.fiberG,
     notes: entry.notes ?? null,
     created_at: entry.createdAt,
+    updated_at: entry.updatedAt,
   };
 }
 
@@ -377,7 +379,24 @@ export function deserializeNutritionEntry(value: unknown): NutritionEntry {
     fiberG: row.fiber_g,
     notes: row.notes ?? undefined,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
+}
+
+function serializeNutritionEntryUpdate(patch: NutritionEntryUpdate): Record<string, unknown> {
+  const row: Record<string, unknown> = { updated_at: patch.updatedAt };
+  if (patch.eatenAt !== undefined) row.eaten_at = patch.eatenAt;
+  if (patch.mealType !== undefined) row.meal_type = patch.mealType;
+  if (patch.foodName !== undefined) row.food_name = patch.foodName;
+  if (patch.servingSize !== undefined) row.serving_size = patch.servingSize;
+  if (patch.servings !== undefined) row.servings = patch.servings;
+  if (patch.caloriesKcal !== undefined) row.calories_kcal = patch.caloriesKcal;
+  if (patch.proteinG !== undefined) row.protein_g = patch.proteinG;
+  if (patch.carbohydratesG !== undefined) row.carbohydrates_g = patch.carbohydratesG;
+  if (patch.fatG !== undefined) row.fat_g = patch.fatG;
+  if (patch.fiberG !== undefined) row.fiber_g = patch.fiberG;
+  if (patch.notes !== undefined) row.notes = patch.notes;
+  return row;
 }
 
 
@@ -592,5 +611,29 @@ export class SupabaseStorage implements LifestyleStorage {
       offset += data.length;
     }
     return entries;
+  }
+
+  async updateNutritionEntry(ownerId: string, entryId: string, patch: NutritionEntryUpdate): Promise<NutritionEntry | null> {
+    const { data, error } = await this.client
+      .from("nutrition_entries")
+      .update(serializeNutritionEntryUpdate(patch))
+      .eq("id", entryId)
+      .eq("owner_id", ownerId)
+      .select(NUTRITION_ENTRY_SELECT)
+      .maybeSingle();
+    throwIfError("update nutrition entry", error);
+    return data ? deserializeNutritionEntry(data) : null;
+  }
+
+  async deleteNutritionEntry(ownerId: string, entryId: string): Promise<NutritionEntry | null> {
+    const { data, error } = await this.client
+      .from("nutrition_entries")
+      .delete()
+      .eq("id", entryId)
+      .eq("owner_id", ownerId)
+      .select(NUTRITION_ENTRY_SELECT)
+      .maybeSingle();
+    throwIfError("delete nutrition entry", error);
+    return data ? deserializeNutritionEntry(data) : null;
   }
 }

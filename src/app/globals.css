@@ -581,3 +581,108 @@
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
 }
+
+@layer components {
+  .athlete-overview, .training-workspace, .body-progress-workspace, .strength-workspace { display: grid; gap: 18px; }
+  .command-heading, .section-command-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 30px; }
+  .command-heading h1, .section-command-head h1 { margin-top: 7px; font-size: clamp(31px, 4vw, 50px); line-height: 1; letter-spacing: -.045em; }
+  .command-heading h1 span { color: var(--acid); }
+  .command-heading p, .section-command-head p { max-width: 720px; margin-top: 10px; color: var(--muted); }
+  .command-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); background: var(--line); }
+  .command-facts article { display: grid; align-content: start; min-height: 190px; padding: 22px; background: var(--surface); }
+  .command-facts article > span, .body-signal-grid article > span, .strength-summary-grid article > span { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+  .command-facts article > strong, .body-signal-grid article > strong, .strength-summary-grid article > strong { margin-top: 15px; font-size: clamp(27px, 3vw, 39px); line-height: 1; letter-spacing: -.035em; }
+  .command-facts article > strong small, .strength-summary-grid article > strong small { margin-left: 5px; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+  .command-facts article p { min-height: 44px; margin-top: 10px; color: #b2bab4; font-size: 13px; }
+  .command-facts article button { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: auto; padding: 11px 0 0; border: 0; border-top: 1px solid var(--line-soft); background: transparent; color: var(--acid); cursor: pointer; font-size: 12px; font-weight: 700; }
+  .next-action { padding: 22px 25px; border-left: 3px solid var(--acid); }
+  .next-action > div { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 8px; }
+  .next-action h2 { font-size: 22px; }
+  .next-action p { margin-top: 3px; color: var(--muted); }
+
+  .date-control { display: flex; align-items: end; gap: 10px; padding: 15px; }
+  .date-control label { width: min(270px, 100%); }
+  .date-control > button:not(.text-button) { width: 43px; height: 43px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+  .date-control .text-button { min-height: 43px; }
+  .workout-date-groups, .workout-log-list { display: grid; gap: 12px; }
+  .workout-date-group { display: grid; gap: 10px; }
+  .workout-date-group > header { display: flex; align-items: end; justify-content: space-between; gap: 14px; padding: 8px 2px; }
+  .workout-date-group > header h2 { margin-top: 3px; font-size: 20px; }
+  .workout-date-group > header > span { color: var(--muted); font-size: 12px; }
+  .workout-log { overflow: hidden; }
+  .workout-log > summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 22px; cursor: pointer; list-style: none; }
+  .workout-log > summary::-webkit-details-marker { display: none; }
+  .workout-log > summary:hover { background: var(--surface-2); }
+  .workout-log > summary h3 { display: inline; margin-left: 9px; font-size: 19px; }
+  .workout-log > summary p { margin-top: 6px; color: var(--muted); font-size: 13px; }
+  .workout-log > summary > span { color: var(--acid); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .source-pill { display: inline-flex; padding: 3px 6px; border: 1px solid #4c5a37; color: var(--acid); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; vertical-align: 3px; }
+  .workout-log-detail { display: grid; gap: 18px; padding: 20px 22px 23px; border-top: 1px solid var(--line); background: #0c0f0d; }
+  .workout-log-detail dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line-soft); }
+  .workout-log-detail dl div { padding: 11px; background: var(--surface); }
+  .workout-log-detail dt { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .workout-log-detail dd { margin: 3px 0 0; font-size: 12px; }
+  .workout-notes { color: #cbd1cc; font-size: 13px; }
+  .table-scroll { width: 100%; overflow-x: auto; }
+  .table-scroll table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 12px; }
+  .table-scroll th, .table-scroll td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+  .table-scroll thead th { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .table-scroll tbody th { color: var(--text); }
+  .table-scroll tbody tr:hover { background: #151a16; }
+
+  .range-tabs { display: inline-flex; justify-self: start; padding: 3px; border: 1px solid var(--line); background: var(--surface); }
+  .range-tabs button { min-height: 37px; padding: 0 15px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
+  .range-tabs button[aria-pressed="true"] { background: var(--acid); color: var(--ink); }
+  .inline-loading { display: grid; min-height: 260px; place-items: center; }
+  .body-signal-grid, .strength-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .body-signal-grid article, .strength-summary-grid article { min-height: 230px; padding: 20px; overflow: hidden; }
+  .body-signal-grid article p, .strength-summary-grid article p { margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .progress-line { width: calc(100% + 40px); height: 90px; margin: 20px -20px -20px; overflow: visible; }
+  .progress-line polyline { fill: none; stroke: var(--acid); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .line-chart-empty { display: grid; height: 90px; margin-top: 20px; place-items: center; border-top: 1px dashed var(--line); color: var(--muted-2); font-size: 11px; text-align: center; }
+  .progress-table, .strength-table { padding: 22px; }
+  .strength-table th small, .strength-table td small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 500; }
+  .change-up { color: var(--acid) !important; }
+  .change-down { color: #ff9a92 !important; }
+  .pr-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pr-badges span { padding: 4px 6px; border: 1px solid var(--acid-dark); background: #1a210f; color: var(--acid); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+  .estimate-help { margin-top: 14px; color: var(--muted); font-size: 11px; }
+
+  .editable-meal-list article, .food-edit-card { border: 1px solid var(--line); background: #0d100e; }
+  .editable-meal-list article { padding: 15px; }
+  .editable-meal-list article > small { display: block; margin-top: 8px; color: var(--muted-2); }
+  .entry-actions { display: flex !important; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+  .entry-actions .secondary-button { min-height: 34px; padding: 0 12px; font-size: 11px; }
+  .entry-actions > span { color: var(--danger); font-size: 11px; font-weight: 700; }
+  .danger-button { min-height: 34px; padding: 0 12px; border: 1px solid #793e3a; background: #2b1514; color: #ff9a92; cursor: pointer; font-size: 11px; font-weight: 750; }
+  .food-edit-card { display: grid; gap: 12px; padding: 16px; }
+  .food-edit-head { display: flex; align-items: center; justify-content: space-between; }
+  .food-edit-card .primary-button { justify-self: start; }
+  .guide-workspace + .guide-workspace, .agent-layout + .guide-workspace { margin-top: 18px; }
+}
+
+@layer responsive {
+  @media (max-width: 1000px) {
+    .command-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .body-signal-grid, .strength-summary-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .command-heading, .section-command-head { align-items: stretch; flex-direction: column; padding: 22px 18px; }
+    .command-heading > button, .section-command-head > button { width: 100%; }
+    .command-facts { grid-template-columns: 1fr; }
+    .command-facts article { min-height: 165px; }
+    .next-action > div { align-items: stretch; flex-direction: column; }
+    .date-control { align-items: stretch; flex-wrap: wrap; }
+    .date-control label { order: -1; width: 100%; }
+    .date-control .text-button { flex: 1; }
+    .workout-log > summary { align-items: flex-start; }
+    .workout-log > summary > span { font-size: 0; }
+    .workout-log > summary > span::after { content: "Open"; font-size: 12px; }
+    .workout-log-detail dl { grid-template-columns: 1fr 1fr; }
+    .body-signal-grid, .strength-summary-grid { grid-template-columns: 1fr; }
+    .body-signal-grid article { min-height: 210px; }
+    .progress-table, .strength-table { padding: 16px 12px; }
+    .range-tabs { width: 100%; }
+    .range-tabs button { flex: 1; }
+  }
+}

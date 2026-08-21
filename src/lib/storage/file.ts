@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { storageDocumentSchema } from "@/lib/storage/schema";
+import type { NutritionEntryUpdate } from "@/lib/storage/types";
 
 export class JsonFileStorage extends MemoryStorage {
   private readonly filePath: string;
@@ -141,5 +142,13 @@ export class JsonFileStorage extends MemoryStorage {
   override async listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]> {
     await this.waitForReads();
     return super.listNutritionEntries(ownerId, limit);
+  }
+
+  override async updateNutritionEntry(ownerId: string, entryId: string, patch: NutritionEntryUpdate): Promise<NutritionEntry | null> {
+    return this.mutate(() => super.updateNutritionEntry(ownerId, entryId, patch));
+  }
+
+  override async deleteNutritionEntry(ownerId: string, entryId: string): Promise<NutritionEntry | null> {
+    return this.mutate(() => super.deleteNutritionEntry(ownerId, entryId));
   }
 }

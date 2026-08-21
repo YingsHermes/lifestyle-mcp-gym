@@ -136,6 +136,10 @@ export const foodLogInputSchema = z.object({
   notes: safeText(1, 1_000).optional(),
 }).strict();
 
+export const foodLogPatchSchema = foodLogInputSchema
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, "Provide at least one food field to update");
+
 export const foodLogListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
 }).strict();
@@ -143,6 +147,11 @@ export const foodLogListQuerySchema = z.object({
 export const nutritionSummaryQuerySchema = z.object({
   date: isoDateSchema.optional(),
 }).strict();
+
+export const progressRangeQuerySchema = z.object({
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+}).strict().refine((range) => !range.from || !range.to || range.from <= range.to, "From date must not be after to date");
 
 export type HumanRegistrationInput = z.infer<typeof humanRegistrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -154,8 +163,10 @@ export type AgentScope = (typeof agentScopes)[number];
 export type ExperienceLevel = (typeof experienceLevels)[number];
 export type NutritionProfileInput = z.input<typeof nutritionProfileInputSchema>;
 export type FoodLogInput = z.infer<typeof foodLogInputSchema>;
+export type FoodLogPatchInput = z.infer<typeof foodLogPatchSchema>;
 export type FoodLogListQuery = z.input<typeof foodLogListQuerySchema>;
 export type NutritionSummaryQuery = z.input<typeof nutritionSummaryQuerySchema>;
+export type ProgressRangeQuery = z.input<typeof progressRangeQuerySchema>;
 export type NutritionSex = (typeof nutritionSexes)[number];
 export type ActivityLevel = (typeof activityLevels)[number];
 export type NutritionGoal = (typeof nutritionGoals)[number];
@@ -272,6 +283,7 @@ export interface NutritionEntry {
   fiberG: number;
   notes?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface DailyActivity {

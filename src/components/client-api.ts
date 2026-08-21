@@ -20,11 +20,14 @@ const setSchema = z.object({
 
 const workoutSchema = z.object({
   id: z.string(),
+  ownerId: z.string(),
+  agentId: z.string().optional(),
   title: z.string(),
   occurredAt: z.string(),
   durationMinutes: z.number().optional(),
   notes: z.string().optional(),
   exercises: z.array(z.object({ id: z.string(), name: z.string(), sets: z.array(setSchema) })),
+  createdAt: z.string(),
 });
 
 const agentSchema = z.object({
@@ -39,11 +42,14 @@ const agentSchema = z.object({
 
 const metricSchema = z.object({
   id: z.string(),
+  ownerId: z.string(),
+  agentId: z.string().optional(),
   recordedAt: z.string(),
   weightKg: z.number().optional(),
   bodyFatPercent: z.number().optional(),
   waistCm: z.number().optional(),
   notes: z.string().optional(),
+  createdAt: z.string(),
 });
 
 const nutritionProfileSchema = z.object({
@@ -76,6 +82,7 @@ const nutritionEntrySchema = z.object({
   fiberG: z.number(),
   notes: z.string().optional(),
   createdAt: z.string(),
+  updatedAt: z.string(),
 });
 
 const nutritionTargetsSchema = z.object({
@@ -133,6 +140,67 @@ const statsSchema = z.object({
   weeklyActivity: z.array(z.object({ date: z.string(), volumeKg: z.number(), workouts: z.number() })),
 });
 
+const trendDirectionSchema = z.enum(["up", "down", "flat", "insufficient_data"]);
+const bodyProgressSeriesSchema = z.object({
+  unit: z.enum(["kg", "%", "cm"]),
+  first: z.number().nullable(),
+  latest: z.number().nullable(),
+  change: z.number().nullable(),
+  direction: trendDirectionSchema,
+  points: z.array(z.object({ recordedAt: z.string(), value: z.number() })),
+});
+const bodyProgressSchema = z.object({
+  range: z.object({ from: z.string().nullable(), to: z.string().nullable() }),
+  metricsCount: z.number(),
+  weight: bodyProgressSeriesSchema,
+  bodyFat: bodyProgressSeriesSchema,
+  waist: bodyProgressSeriesSchema,
+  sparseDataMessage: z.string().nullable(),
+  humanReadable: z.string(),
+});
+const strengthProgressSchema = z.object({
+  generatedAt: z.string(),
+  range: z.object({ from: z.string().nullable(), to: z.string().nullable() }),
+  formula: z.object({ estimated1RM: z.string(), estimated: z.literal(true) }),
+  workoutCount: z.number(),
+  totalVolumeKg: z.number(),
+  volumeTrend: z.object({
+    firstLoggedWeek: z.string().nullable(),
+    latestLoggedWeek: z.string().nullable(),
+    firstLoggedWeekKg: z.number().nullable(),
+    latestLoggedWeekKg: z.number().nullable(),
+    changeKg: z.number().nullable(),
+    changePercent: z.number().nullable(),
+    direction: trendDirectionSchema,
+    points: z.array(z.object({ weekStart: z.string(), volumeKg: z.number() })),
+  }),
+  exercises: z.array(z.object({
+    name: z.string(),
+    sessions: z.number(),
+    firstPerformedAt: z.string(),
+    latestPerformedAt: z.string(),
+    bestWeightKg: z.number().nullable(),
+    bestEstimated1RMKg: z.number().nullable(),
+    firstBestWeightKg: z.number().nullable(),
+    latestBestWeightKg: z.number().nullable(),
+    weightChangeKg: z.number().nullable(),
+    firstEstimated1RMKg: z.number().nullable(),
+    latestEstimated1RMKg: z.number().nullable(),
+    estimated1RMChangeKg: z.number().nullable(),
+    badges: z.array(z.enum(["weight_pr", "estimated_1rm_pr"])),
+  })),
+  personalRecords: z.array(z.object({
+    exerciseName: z.string(),
+    type: z.enum(["weight", "estimated_1rm"]),
+    valueKg: z.number(),
+    workoutId: z.string(),
+    occurredAt: z.string(),
+    estimated: z.boolean(),
+  })),
+  dataQuality: z.object({ hasWeightedSets: z.boolean(), message: z.string() }),
+  humanReadable: z.string(),
+});
+
 export const sessionResponseSchema = z.object({ user: publicUserSchema });
 export const workoutsResponseSchema = z.object({ workouts: z.array(workoutSchema) });
 export const statsResponseSchema = z.object({ stats: statsSchema });
@@ -145,6 +213,10 @@ export const nutritionProfileResponseSchema = z.object({ profile: nutritionProfi
 export const nutritionSummaryResponseSchema = z.object({ summary: nutritionSummarySchema });
 export const nutritionProfileSavedResponseSchema = z.object({ profile: nutritionProfileSchema });
 export const nutritionEntryCreatedResponseSchema = z.object({ entry: nutritionEntrySchema, dataSource: z.literal("user_entered") });
+export const nutritionEntryUpdatedResponseSchema = z.object({ entry: nutritionEntrySchema, dataSource: z.literal("user_entered") });
+export const nutritionEntryDeletedResponseSchema = z.object({ deleted: z.literal(true), entryId: z.string() });
+export const bodyProgressResponseSchema = z.object({ summary: bodyProgressSchema });
+export const strengthProgressResponseSchema = z.object({ summary: strengthProgressSchema });
 export const statusResponseSchema = z.object({
   status: z.literal("ok"),
   storage: z.object({ mode: z.enum(["file", "memory", "supabase"]), durable: z.boolean(), notice: z.string() }),
@@ -163,6 +235,8 @@ export type NutritionProfile = z.infer<typeof nutritionProfileSchema>;
 export type NutritionEntry = z.infer<typeof nutritionEntrySchema>;
 export type NutritionTargets = z.infer<typeof nutritionTargetsSchema>;
 export type NutritionSummary = z.infer<typeof nutritionSummarySchema>;
+export type BodyProgress = z.infer<typeof bodyProgressSchema>;
+export type StrengthProgress = z.infer<typeof strengthProgressSchema>;
 export type StorageStatus = z.infer<typeof statusResponseSchema>["storage"];
 
 export class ApiRequestError extends Error {

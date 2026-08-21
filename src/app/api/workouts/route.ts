@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { workoutInputSchema, workoutListQuerySchema } from "@/lib/domain";
+import { progressRangeQuerySchema, workoutInputSchema, workoutListQuerySchema } from "@/lib/domain";
 import { apiResponse, assertSameOrigin, readJson, requireHuman } from "@/lib/api";
 import { getLifestyleService } from "@/lib/runtime";
 
@@ -7,7 +7,11 @@ export async function GET(request: NextRequest) {
   return apiResponse(async () => {
     const user = await requireHuman(request);
     const query = workoutListQuerySchema.parse({ limit: request.nextUrl.searchParams.get("limit") ?? undefined });
-    return NextResponse.json({ workouts: await getLifestyleService().listWorkouts(user.id, query.limit) });
+    const range = progressRangeQuerySchema.parse({
+      from: request.nextUrl.searchParams.get("from") ?? undefined,
+      to: request.nextUrl.searchParams.get("to") ?? undefined,
+    });
+    return NextResponse.json({ workouts: await getLifestyleService().listWorkouts(user.id, query.limit, range) });
   });
 }
 

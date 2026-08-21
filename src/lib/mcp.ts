@@ -5,9 +5,11 @@ import {
   bodyMetricInputSchema,
   dashboardLinkInputSchema,
   foodLogInputSchema,
+  foodLogPatchSchema,
   foodLogListQuerySchema,
   nutritionProfileInputSchema,
   nutritionSummaryQuerySchema,
+  progressRangeQuerySchema,
   workoutInputSchema,
   type AgentScope,
 } from "@/lib/domain";
@@ -28,13 +30,23 @@ const toolCallSchema = z.object({
 
 const listWorkoutsArgumentsSchema = z.object({
   limit: z.number().int().min(1).max(100).optional().default(20),
-});
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).strict().refine((range) => !range.from || !range.to || range.from <= range.to, "From date must not be after to date");
 
 const calorieTargetsArgumentsSchema = z.object({
   asOfDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 }).strict();
 
 const noArgumentsSchema = z.object({}).strict();
+
+const nutritionEntryIdArgumentsSchema = z.object({
+  entryId: z.string().trim().min(1).max(200),
+}).strict();
+
+const updateFoodArgumentsSchema = z.object({
+  entryId: z.string().trim().min(1).max(200),
+}).passthrough();
 
 type RpcId = string | number | null;
 
@@ -120,13 +132,23 @@ const tools: ToolDefinition[] = [
   },
   {
     name: "list_workouts",
-    description: "List recent workouts for the agent owner.",
-    inputSchema: { type: "object", additionalProperties: false, properties: { limit: { type: "integer", minimum: 1, maximum: 100 } } },
+    description: "List complete daily workout logs for the agent owner, including title, time, duration, exercises, sets, reps, weight, notes, source agent, and creation timestamp. Optional inclusive date filters use YYYY-MM-DD.",
+    inputSchema: { type: "object", additionalProperties: false, properties: { limit: { type: "integer", minimum: 1, maximum: 100 }, from: { type: "string", format: "date" }, to: { type: "string", format: "date" } } },
+  },
+  {
+    name: "get_strength_progress",
+    description: "Get an LLM-ready strength summary from logged workouts: per-exercise best weight, Epley estimated 1RM, first-to-latest changes, volume trend, and factual personal records.",
+    inputSchema: { type: "object", additionalProperties: false, properties: { from: { type: "string", format: "date" }, to: { type: "string", format: "date" } } },
   },
   {
     name: "get_stats",
-    description: "Get training volume, weekly activity, and body-weight progress statistics. Requires workouts:read and metrics:read.",
+    description: "Get this week's training consistency and volume plus body-weight change since the first body log. Requires workouts:read and metrics:read.",
     inputSchema: { type: "object", additionalProperties: false },
+  },
+  {
+    name: "get_body_progress",
+    description: "Get ranged body trends from real measurements: weight, body fat, and waist with units, first, latest, change, direction, points, and sparse-data guidance.",
+    inputSchema: { type: "object", additionalProperties: false, properties: { from: { type: "string", format: "date" }, to: { type: "string", format: "date" } } },
   },
   {
     name: "record_body_metrics",
@@ -170,7 +192,7 @@ const tools: ToolDefinition[] = [
   },
   {
     name: "log_food",
-    description: "Persist user-entered food and nutrient totals. Values are totals for this log entry; the server never invents nutrition data.",
+    description: "Persist user-entered food and nutrient totals for the owner. Values are totals for this log entry; the server never invents nutrition data.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -188,6 +210,39 @@ const tools: ToolDefinition[] = [
         fiberG: { type: "number", minimum: 0, maximum: 500 },
         notes: { type: "string", minLength: 1, maxLength: 1_000 },
       },
+    },
+  },
+  {
+    name: "update_food",
+    description: "Update selected mutable fields on one user-entered food record for the credential owner. ownerId, source agent, createdAt, and id cannot be changed.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["entryId"],
+      properties: {
+        entryId: { type: "string", minLength: 1, maxLength: 200 },
+        eatenAt: { type: "string", format: "date-time" },
+        mealType: { enum: ["breakfast", "lunch", "dinner", "snack", "other"] },
+        foodName: { type: "string", minLength: 1, maxLength: 160 },
+        servingSize: { type: "string", minLength: 1, maxLength: 100 },
+        servings: { type: "number", exclusiveMinimum: 0, maximum: 100 },
+        caloriesKcal: { type: "number", minimum: 0, maximum: 20_000 },
+        proteinG: { type: "number", minimum: 0, maximum: 2_000 },
+        carbohydratesG: { type: "number", minimum: 0, maximum: 2_000 },
+        fatG: { type: "number", minimum: 0, maximum: 2_000 },
+        fiberG: { type: "number", minimum: 0, maximum: 500 },
+        notes: { type: "string", minLength: 1, maxLength: 1_000 },
+      },
+    },
+  },
+  {
+    name: "delete_food",
+    description: "Delete one user-entered food record belonging to the credential owner. This is permanent and returns the deleted entry id.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["entryId"],
+      properties: { entryId: { type: "string", minLength: 1, maxLength: 200 } },
     },
   },
   {
@@ -263,12 +318,16 @@ function scopesForTool(toolName: string): AgentScope[] | null {
   const scopes: Record<string, AgentScope[]> = {
     log_workout: ["workouts:write"],
     list_workouts: ["workouts:read"],
+    get_strength_progress: ["workouts:read"],
     get_stats: ["workouts:read", "metrics:read"],
+    get_body_progress: ["metrics:read"],
     record_body_metrics: ["metrics:write"],
     create_dashboard_link: ["dashboard:link"],
     set_nutrition_profile: ["nutrition:write"],
     get_nutrition_profile: ["nutrition:read"],
     log_food: ["nutrition:write"],
+    update_food: ["nutrition:write"],
+    delete_food: ["nutrition:write"],
     list_food_log: ["nutrition:read"],
     get_nutrition_summary: ["nutrition:read"],
     calculate_calorie_targets: ["nutrition:read"],
@@ -329,6 +388,25 @@ async function callTool(
       humanReadable: `Logged ${entry.foodName}: ${entry.caloriesKcal} kcal and ${entry.proteinG} g protein from user-entered values.`,
     };
   }
+  if (toolName === "update_food") {
+    const input = updateFoodArgumentsSchema.parse(rawArguments);
+    const { entryId, ...rawPatch } = input;
+    const entry = await service.editFood(ownerId, entryId, foodLogPatchSchema.parse(rawPatch));
+    return {
+      entry,
+      dataSource: "user_entered",
+      humanReadable: `Updated ${entry.foodName}; owner and creation audit fields were preserved.`,
+    };
+  }
+  if (toolName === "delete_food") {
+    const input = nutritionEntryIdArgumentsSchema.parse(rawArguments);
+    await service.deleteFood(ownerId, input.entryId);
+    return {
+      deleted: true,
+      entryId: input.entryId,
+      humanReadable: "Food entry deleted for the credential owner.",
+    };
+  }
   if (toolName === "list_food_log") {
     const query = foodLogListQuerySchema.parse(rawArguments);
     const entries = await service.listFoodLog(ownerId, query);
@@ -358,11 +436,17 @@ async function callTool(
   }
   if (toolName === "list_workouts") {
     const input = listWorkoutsArgumentsSchema.parse(rawArguments);
-    return { workouts: await service.listWorkouts(ownerId, input.limit) };
+    return { workouts: await service.listWorkouts(ownerId, input.limit, { from: input.from, to: input.to }) };
+  }
+  if (toolName === "get_strength_progress") {
+    return service.getStrengthProgress(ownerId, progressRangeQuerySchema.parse(rawArguments));
   }
   if (toolName === "get_stats") {
     noArgumentsSchema.parse(rawArguments);
     return service.getStats(ownerId);
+  }
+  if (toolName === "get_body_progress") {
+    return service.getBodyProgress(ownerId, progressRangeQuerySchema.parse(rawArguments));
   }
   return service.recordBodyMetric(ownerId, bodyMetricInputSchema.parse(rawArguments), agentId);
 }

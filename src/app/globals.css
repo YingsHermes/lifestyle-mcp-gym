@@ -587,7 +587,7 @@
 }
 
 @layer components {
-  .athlete-overview, .training-workspace, .body-progress-workspace, .strength-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .athlete-overview, .training-workspace, .body-progress-workspace, .strength-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; width: min(1320px, 100%); margin: 0 auto; }
   .command-heading, .section-command-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 30px; }
   .command-heading h1, .section-command-head h1 { margin-top: 7px; font-size: clamp(31px, 4vw, 50px); line-height: 1; letter-spacing: -.045em; }
   .command-heading h1 span { color: var(--acid); }

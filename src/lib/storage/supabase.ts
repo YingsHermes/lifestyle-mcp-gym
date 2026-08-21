@@ -10,13 +10,14 @@ import {
   type Agent,
   type AgentDashboardLink,
   type BodyMetric,
+  type Note,
   type NutritionEntry,
   type NutritionProfile,
   type Session,
   type User,
   type Workout,
 } from "@/lib/domain";
-import { StorageConflictError, type LifestyleStorage, type NutritionEntryUpdate } from "@/lib/storage/types";
+import { StorageConflictError, type LifestyleStorage, type NoteUpdate, type NutritionEntryUpdate } from "@/lib/storage/types";
 
 const humanRowSchema = z.object({
   id: z.string(),
@@ -134,6 +135,17 @@ const nutritionEntryRowSchema = z.object({
   updated_at: z.string(),
 });
 
+const noteRowSchema = z.object({
+  id: z.string(),
+  owner_id: z.string(),
+  agent_id: z.string().nullable(),
+  title: z.string(),
+  content: z.string(),
+  tags: z.array(z.string()),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
 const HUMAN_SELECT = "id,name,email,password_hash,timezone,goals,experience,consent_at,created_at";
 const SESSION_SELECT = "id,human_id,token_hash,expires_at,created_at";
 const AGENT_SELECT = "id,owner_id,name,secret_hash,scopes,capabilities,webhook_url,owner_metadata,created_at,last_used_at";
@@ -141,6 +153,7 @@ const WORKOUT_SELECT = "id,owner_id,agent_id,title,occurred_at,duration_minutes,
 const BODY_METRIC_SELECT = "id,owner_id,agent_id,recorded_at,weight_kg,body_fat_percent,waist_cm,notes,created_at";
 const NUTRITION_PROFILE_SELECT = "owner_id,sex,birth_date,height_cm,activity_level,goal,target_rate_kg_per_week,dietary_preferences,allergies,created_at,updated_at";
 const NUTRITION_ENTRY_SELECT = "id,owner_id,agent_id,eaten_at,meal_type,food_name,serving_size,servings,calories_kcal,protein_g,carbohydrates_g,fat_g,fiber_g,notes,created_at,updated_at";
+const NOTE_SELECT = "id,owner_id,agent_id,title,content,tags,created_at,updated_at";
 const PAGE_SIZE = 1_000;
 
 export function serializeHuman(user: User) {
@@ -399,6 +412,41 @@ function serializeNutritionEntryUpdate(patch: NutritionEntryUpdate): Record<stri
   return row;
 }
 
+export function serializeNote(note: Note) {
+  return {
+    id: note.id,
+    owner_id: note.ownerId,
+    agent_id: note.agentId ?? null,
+    title: note.title,
+    content: note.content,
+    tags: note.tags,
+    created_at: note.createdAt,
+    updated_at: note.updatedAt,
+  };
+}
+
+export function deserializeNote(value: unknown): Note {
+  const row = noteRowSchema.parse(value);
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    agentId: row.agent_id ?? undefined,
+    title: row.title,
+    content: row.content,
+    tags: [...row.tags],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function serializeNoteUpdate(patch: NoteUpdate): Record<string, unknown> {
+  const row: Record<string, unknown> = { updated_at: patch.updatedAt };
+  if (patch.title !== undefined) row.title = patch.title;
+  if (patch.content !== undefined) row.content = patch.content;
+  if (patch.tags !== undefined) row.tags = patch.tags;
+  return row;
+}
+
 
 function throwIfError(operation: string, error: PostgrestError | null): void {
   if (error) {
@@ -635,5 +683,66 @@ export class SupabaseStorage implements LifestyleStorage {
       .maybeSingle();
     throwIfError("delete nutrition entry", error);
     return data ? deserializeNutritionEntry(data) : null;
+  }
+
+  async createNote(note: Note): Promise<Note> {
+    const { error } = await this.client.from("notes").insert(serializeNote(note));
+    throwIfError("create note", error);
+    return structuredClone(note);
+  }
+
+  async searchNotes(ownerId: string, query: string, limit: number): Promise<Note[]> {
+    if (!query) {
+      const { data, error } = await this.client
+        .from("notes")
+        .select(NOTE_SELECT)
+        .eq("owner_id", ownerId)
+        .order("updated_at", { ascending: false })
+        .limit(limit);
+      throwIfError("list notes", error);
+      return (data ?? []).map(deserializeNote);
+    }
+    const { data, error } = await this.client.rpc("search_lifestyle_notes", {
+      p_owner_id: ownerId,
+      p_query: query,
+      p_limit: limit,
+    });
+    throwIfError("search notes", error);
+    return (data ?? []).map(deserializeNote);
+  }
+
+  async getNote(ownerId: string, noteId: string): Promise<Note | null> {
+    const { data, error } = await this.client
+      .from("notes")
+      .select(NOTE_SELECT)
+      .eq("id", noteId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    throwIfError("get note", error);
+    return data ? deserializeNote(data) : null;
+  }
+
+  async updateNote(ownerId: string, noteId: string, patch: NoteUpdate): Promise<Note | null> {
+    const { data, error } = await this.client
+      .from("notes")
+      .update(serializeNoteUpdate(patch))
+      .eq("id", noteId)
+      .eq("owner_id", ownerId)
+      .select(NOTE_SELECT)
+      .maybeSingle();
+    throwIfError("update note", error);
+    return data ? deserializeNote(data) : null;
+  }
+
+  async deleteNote(ownerId: string, noteId: string): Promise<Note | null> {
+    const { data, error } = await this.client
+      .from("notes")
+      .delete()
+      .eq("id", noteId)
+      .eq("owner_id", ownerId)
+      .select(NOTE_SELECT)
+      .maybeSingle();
+    throwIfError("delete note", error);
+    return data ? deserializeNote(data) : null;
   }
 }

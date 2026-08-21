@@ -9,6 +9,9 @@ import {
   foodLogListQuerySchema,
   humanRegistrationSchema,
   loginSchema,
+  noteInputSchema,
+  notePatchSchema,
+  noteSearchQuerySchema,
   nutritionProfileInputSchema,
   progressRangeQuerySchema,
   workoutInputSchema,
@@ -23,6 +26,10 @@ import {
   type FoodLogListQuery,
   type HumanRegistrationInput,
   type LoginInput,
+  type Note,
+  type NoteInput,
+  type NotePatchInput,
+  type NoteSearchQuery,
   type NutritionEntry,
   type NutritionProfile,
   type NutritionProfileInput,
@@ -521,6 +528,72 @@ export class LifestyleService {
     const entry = await this.storage.deleteNutritionEntry(ownerId, entryId);
     if (!entry) throw new AppError(404, "nutrition_entry_not_found", "Nutrition entry was not found");
     return entry;
+  }
+
+  async createNote(ownerId: string, rawInput: NoteInput, agentId?: string): Promise<Note> {
+    const input = noteInputSchema.parse(rawInput);
+    const timestamp = this.now().toISOString();
+    return this.storage.createNote({
+      id: createId("note"),
+      ownerId,
+      agentId,
+      title: input.title,
+      content: input.content,
+      tags: [...new Set(input.tags)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
+
+  async searchNotes(ownerId: string, rawQuery: NoteSearchQuery = {}): Promise<Note[]> {
+    const query = noteSearchQuerySchema.parse(rawQuery);
+    return this.storage.searchNotes(ownerId, query.query, query.limit);
+  }
+
+  async getNote(ownerId: string, noteId: string): Promise<Note> {
+    const note = await this.storage.getNote(ownerId, noteId);
+    if (!note) throw new AppError(404, "note_not_found", "Note was not found");
+    return note;
+  }
+
+  async updateNote(ownerId: string, noteId: string, rawPatch: NotePatchInput): Promise<Note> {
+    const patch = notePatchSchema.parse(rawPatch);
+    const note = await this.storage.updateNote(ownerId, noteId, {
+      ...patch,
+      ...(patch.tags ? { tags: [...new Set(patch.tags)] } : {}),
+      updatedAt: this.now().toISOString(),
+    });
+    if (!note) throw new AppError(404, "note_not_found", "Note was not found");
+    return note;
+  }
+
+  async deleteNote(ownerId: string, noteId: string): Promise<Note> {
+    const note = await this.storage.deleteNote(ownerId, noteId);
+    if (!note) throw new AppError(404, "note_not_found", "Note was not found");
+    return note;
+  }
+
+  async getNotesContext(ownerId: string, rawQuery: NoteSearchQuery): Promise<{
+    query: string;
+    notes: Note[];
+    context: string;
+    humanReadable: string;
+  }> {
+    const query = noteSearchQuerySchema.parse(rawQuery);
+    if (!query.query) {
+      throw new AppError(400, "note_query_required", "A context query is required");
+    }
+    const notes = await this.storage.searchNotes(ownerId, query.query, query.limit);
+    const context = notes.map((note) =>
+      `# ${note.title}\nTags: ${note.tags.join(", ") || "none"}\nUpdated: ${note.updatedAt}\n${note.content}`).join("\n\n");
+    return {
+      query: query.query,
+      notes,
+      context,
+      humanReadable: notes.length
+        ? `Found ${notes.length} durable note${notes.length === 1 ? "" : "s"} for \"${query.query}\". Use the returned context before acting.`
+        : `No durable notes matched \"${query.query}\".`,
+    };
   }
 
   async getBodyProgress(ownerId: string, rawRange: ProgressRangeQuery = {}) {

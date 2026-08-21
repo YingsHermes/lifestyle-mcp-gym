@@ -28,7 +28,7 @@ interface ExerciseDraft {
 
 const blankSet = (): SetDraft => ({ reps: "", weightKg: "", durationSeconds: "" });
 const blankExercise = (): ExerciseDraft => ({ name: "", sets: [blankSet()] });
-const scopeSchema = z.enum(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "nutrition:read", "nutrition:write", "coaching:read", "dashboard:link"]);
+const scopeSchema = z.enum(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "nutrition:read", "nutrition:write", "notes:read", "notes:write", "coaching:read", "dashboard:link"]);
 type AgentScope = z.infer<typeof scopeSchema>;
 
 function defaultLocalDateTime(): string {
@@ -299,7 +299,7 @@ export function FoodLogForm({ onSaved }: { onSaved: () => Promise<void> }) {
 }
 
 export function AgentPanel({ agents, onSaved }: { agents: Agent[]; onSaved: () => Promise<void> }) {
-  const [scopes, setScopes] = useState<AgentScope[]>(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "dashboard:link"]);
+  const [scopes, setScopes] = useState<AgentScope[]>(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "notes:read", "notes:write", "dashboard:link"]);
   const [secret, setSecret] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 # Lifestyle MCP Gym
 
-Lifestyle MCP Gym is an agent-ready gym and personal-trainer data layer: humans manage nutrition, user-entered food, workouts, body metrics, and deterministic wellness estimates through a responsive dashboard and scoped JSON-RPC MCP tools.
+Lifestyle MCP Gym is an agent-ready gym and personal-trainer data layer: humans manage durable searchable notes, nutrition, user-entered food, workouts, body metrics, and deterministic wellness estimates through a responsive dashboard and scoped JSON-RPC MCP tools.
 
 ## Capabilities
 
@@ -9,10 +9,11 @@ Lifestyle MCP Gym is an agent-ready gym and personal-trainer data layer: humans 
 - Workout tracking: exercises, sets, reps, weight, duration, notes, and recent activity.
 - Body metrics: weight, body fat, waist, date, and notes.
 - Nutrition profiles and bounded food logs. Nutrition values are always user-entered and are never fabricated.
+- Durable owner-scoped notes with CRUD, weighted full-text search, source-agent attribution, and a searchable Notes dashboard.
 - Deterministic Mifflin-St Jeor BMR, activity-factor neutral maintenance calories, explicit goal-adjusted calories, and weight-based macro estimates with versioned assumptions, sign-mismatch warnings, missing-input guidance, safety floors, and wellness disclaimers.
 - One-call coaching context with the nutrition profile, calculated targets, today's nutrition, recent training stats, latest body metrics, and explicit next actions.
 - MCP JSON-RPC endpoint at `/api/mcp` with `initialize`, `tools/list`, and `tools/call`.
-- Scoped MCP tools for workouts, metrics, nutrition, coaching context, agent registration, and dashboard access links.
+- Scoped MCP tools for workouts, metrics, nutrition, durable notes, coaching context, agent registration, and dashboard access links.
 
 ## Run locally
 
@@ -61,7 +62,7 @@ When both Supabase variables are present, the server automatically selects `Supa
 3. Copy the project URL and service-role key into `.env.local` for a local Supabase-backed server.
 4. Restart the Next.js server and confirm `/api/status` reports storage mode `supabase`.
 
-The migrations create normalized humans, sessions, agents, workouts, workout exercises/sets, body metrics, nutrition profiles, and nutrition entries. Row Level Security is enabled on every table. There are intentionally no public policies: all data access uses the server-side service-role client.
+The migrations create normalized humans, sessions, agents, workouts, workout exercises/sets, body metrics, nutrition profiles, nutrition entries, and notes with a GIN full-text index. Row Level Security is enabled on every table. There are intentionally no public policies: all data access uses the server-side service-role client.
 
 ## MCP quickstart
 
@@ -80,6 +81,8 @@ curl -s https://YOUR_DEPLOYMENT/api/mcp \
 ```
 
 Human browser sessions may call the endpoint from the same origin. Agent tool calls require the relevant scopes. Existing workout and metric scopes are unchanged. Nutrition tools use `nutrition:read` or `nutrition:write`; `get_coaching_context` uses only `coaching:read`, which authorizes the aggregate read without granting separate nutrition, workout, or metric tools.
+
+Agents must search durable notes before starting work or asking for context that may already be saved. They should save decisions, preferences, constraints, facts, and handoff context often. Note tools use `notes:read` or `notes:write`; `get_notes_context` returns matching notes as an LLM-ready context block.
 
 
 ### LLM-ready coaching context
@@ -170,7 +173,7 @@ Use `--prod` only for an intentional production deployment. Verify the returned 
 ## Architecture
 
 - `src/components/`: client dashboard, auth, forms, and API guide.
-- `src/app/api/`: Next.js route handlers for auth, workouts, metrics, stats, agents, status, and MCP.
+- `src/app/api/`: Next.js route handlers for auth, notes, workouts, metrics, stats, agents, status, and MCP.
 - `src/lib/domain.ts`: validated domain input schemas and stat calculations.
 - `src/lib/service.ts`: auth, authorization, and application operations.
 - `src/lib/storage/`: storage interface plus Supabase, local JSON, and in-memory adapters.

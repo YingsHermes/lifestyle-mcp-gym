@@ -74,15 +74,15 @@ export function ApiGuide({ compact = false }: { compact?: boolean }) {
       <div className="section-kicker"><Icon name="code" size={16} /> Agent quickstart</div>
       <div className="guide-heading">
         <div>
-          <h2>One endpoint. Thirteen scoped tools.</h2>
-          <p>JSON-RPC 2.0 over HTTP. Structured results separate neutral maintenance from goal-adjusted targets so an LLM can coach in the selected direction.</p>
+          <h2>One endpoint. Nineteen scoped tools.</h2>
+          <p>JSON-RPC 2.0 over HTTP. Agents search durable notes first, save useful memory often, and receive structured health and training results.</p>
         </div>
         <span className="endpoint-chip">POST /api/mcp</span>
       </div>
       <ol className="guide-steps">
         <li><span>01</span><div><strong>Create a human account</strong><p>The owner controls consent, agents, and all recorded data.</p></div></li>
         <li><span>02</span><div><strong>Issue an agent credential</strong><p>Use the Agents panel. Copy the secret when shown; only its scrypt hash is stored.</p></div></li>
-        <li><span>03</span><div><strong>Initialize, then call tools</strong><p>Send the complete <code>agent_ID.secret</code> credential as a bearer token.</p></div></li>
+        <li><span>03</span><div><strong>Search first, save often</strong><p>Initialize, search durable notes before work, and save decisions, preferences, facts, constraints, and handoffs for future sessions.</p></div></li>
       </ol>
       <div className="code-grid">
         <CodeBlock label="Initialize">{initializeExample}</CodeBlock>
@@ -90,9 +90,10 @@ export function ApiGuide({ compact = false }: { compact?: boolean }) {
         <CodeBlock label="Log user-entered food">{foodLogExample}</CodeBlock>
       </div>
       <div className="tool-strip" aria-label="Available MCP tools">
-        {["register_agent", "log_workout", "list_workouts", "get_stats", "record_body_metrics", "set_nutrition_profile", "get_nutrition_profile", "log_food", "list_food_log", "get_nutrition_summary", "calculate_calorie_targets", "get_coaching_context", "create_dashboard_link"].map((tool) => <code key={tool}>{tool}</code>)}
+        {["register_agent", "log_workout", "list_workouts", "get_stats", "record_body_metrics", "set_nutrition_profile", "get_nutrition_profile", "log_food", "list_food_log", "get_nutrition_summary", "calculate_calorie_targets", "get_coaching_context", "create_note", "search_notes", "get_note", "update_note", "delete_note", "get_notes_context", "create_dashboard_link"].map((tool) => <code key={tool}>{tool}</code>)}
       </div>
       <p className="security-line">Nutrition responses expose <code>maintenanceCalories</code>, <code>goalTargetCalories</code>, signed adjustment, goal summary, and suggestions. <code>targetCalories</code> remains a compatible alias.</p>
+      <p className="security-line">Durable note tools use <code>notes:read</code> and <code>notes:write</code>. Search before work; save reusable context often.</p>
       <p className="security-line"><Icon name="shield" size={16} /> Agent scopes are checked per call. Registration requires an authenticated human session.</p>
     </section>
   );

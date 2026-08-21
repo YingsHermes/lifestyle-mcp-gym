@@ -8,6 +8,8 @@ export const agentScopes = [
   "metrics:write",
   "nutrition:read",
   "nutrition:write",
+  "notes:read",
+  "notes:write",
   "coaching:read",
   "dashboard:link",
 ] as const;
@@ -157,6 +159,23 @@ export const progressRangeQuerySchema = z.object({
   to: isoDateSchema.optional(),
 }).strict().refine((range) => !range.from || !range.to || range.from <= range.to, "From date must not be after to date");
 
+const noteTagsSchema = z.array(safeText(1, 40)).max(20).default([]);
+
+export const noteInputSchema = z.object({
+  title: safeText(1, 200),
+  content: safeText(1, 20_000),
+  tags: noteTagsSchema,
+}).strict();
+
+export const notePatchSchema = noteInputSchema
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, "Provide at least one note field to update");
+
+export const noteSearchQuerySchema = z.object({
+  query: z.string().trim().max(500).default(""),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+}).strict();
+
 export type HumanRegistrationInput = z.infer<typeof humanRegistrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AgentRegistrationInput = z.infer<typeof agentRegistrationSchema>;
@@ -171,6 +190,9 @@ export type FoodLogPatchInput = z.infer<typeof foodLogPatchSchema>;
 export type FoodLogListQuery = z.input<typeof foodLogListQuerySchema>;
 export type NutritionSummaryQuery = z.input<typeof nutritionSummaryQuerySchema>;
 export type ProgressRangeQuery = z.input<typeof progressRangeQuerySchema>;
+export type NoteInput = z.input<typeof noteInputSchema>;
+export type NotePatchInput = z.infer<typeof notePatchSchema>;
+export type NoteSearchQuery = z.input<typeof noteSearchQuerySchema>;
 export type NutritionSex = (typeof nutritionSexes)[number];
 export type ActivityLevel = (typeof activityLevels)[number];
 export type NutritionGoal = (typeof nutritionGoals)[number];
@@ -286,6 +308,17 @@ export interface NutritionEntry {
   fatG: number;
   fiberG: number;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Note {
+  id: string;
+  ownerId: string;
+  agentId?: string;
+  title: string;
+  content: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }

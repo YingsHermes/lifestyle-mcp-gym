@@ -11,6 +11,7 @@ import {
   type AthleteSection,
 } from "@/components/athlete-sections";
 import { ProgressWorkspace } from "@/components/progress-section";
+import { NotesWorkspace } from "@/components/notes-workspace";
 import {
   agentsResponseSchema,
   bodyProgressResponseSchema,
@@ -154,6 +155,7 @@ export function Dashboard({ user, onSignedOut }: { user: PublicUser; onSignedOut
             <button type="button" aria-current={section === "today" ? "page" : undefined} className={section === "today" ? "active" : ""} onClick={() => setSection("today")}><Icon name="activity" /><span>Today</span></button>
             <button type="button" aria-current={section === "training" || section === "workout" ? "page" : undefined} className={section === "training" || section === "workout" ? "active" : ""} onClick={() => setSection("training")}><Icon name="dumbbell" /><span>Training</span></button>
             <button type="button" aria-current={section === "nutrition" ? "page" : undefined} className={section === "nutrition" ? "active" : ""} onClick={() => setSection("nutrition")}><Icon name="spark" /><span>Nutrition</span></button>
+            <button type="button" aria-current={section === "notes" ? "page" : undefined} className={section === "notes" ? "active" : ""} onClick={() => setSection("notes")}><Icon name="note" /><span>Notes</span></button>
             <button type="button" aria-current={section === "body" || section === "metrics" ? "page" : undefined} className={section === "body" || section === "metrics" ? "active" : ""} onClick={() => setSection("body")}><Icon name="body" /><span>Body</span></button>
             <button type="button" aria-current={section === "progress" ? "page" : undefined} className={section === "progress" ? "active" : ""} onClick={() => setSection("progress")}><Icon name="trend" /><span>Progress</span></button>
             <button type="button" aria-current={section === "agents" ? "page" : undefined} className={section === "agents" ? "active" : ""} onClick={() => setSection("agents")}><Icon name="agent" /><span>Agents / API</span></button>
@@ -173,6 +175,7 @@ export function Dashboard({ user, onSignedOut }: { user: PublicUser; onSignedOut
                 {section === "metrics" && <MetricWorkspace metrics={data?.metrics ?? []} onSaved={() => saved("body")} onCancel={() => setSection("body")} />}
                 {section === "progress" && data && <ProgressWorkspace initialStrength={data.strengthProgress} initialBody={data.bodyProgress} workouts={data.workouts} metrics={data.metrics} stats={data.stats} agents={data.agents} onNavigate={setSection} />}
                 {section === "nutrition" && data && <NutritionWorkspace profile={data.nutritionProfile} summary={data.nutritionSummary} onSaved={() => saved("nutrition")} />}
+                {section === "notes" && <NotesWorkspace />}
                 {section === "agents" && <><AgentPanel agents={data?.agents ?? []} onSaved={() => saved("agents")} /><div className="workspace-panel guide-workspace"><ApiGuide compact /></div></>}
                 {section === "api" && <div className="workspace-panel guide-workspace"><ApiGuide compact /></div>}
               </div>

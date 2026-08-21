@@ -109,6 +109,17 @@ const nutritionEntrySchema = z.object({
   updatedAt: z.string().optional(),
 }).transform((entry) => ({ ...entry, updatedAt: entry.updatedAt ?? entry.createdAt }));
 
+const noteSchema = z.object({
+  id: z.string(),
+  ownerId: z.string(),
+  agentId: z.string().optional(),
+  title: z.string(),
+  content: z.string(),
+  tags: z.array(z.string()),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 export const storageDocumentSchema = z.object({
   version: z.literal(1),
   users: z.array(userSchema),
@@ -119,4 +130,5 @@ export const storageDocumentSchema = z.object({
   bodyMetrics: z.array(bodyMetricSchema),
   nutritionProfiles: z.array(nutritionProfileSchema).default([]),
   nutritionEntries: z.array(nutritionEntrySchema).default([]),
+  notes: z.array(noteSchema).default([]),
 });

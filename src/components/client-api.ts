@@ -33,7 +33,7 @@ const workoutSchema = z.object({
 const agentSchema = z.object({
   id: z.string(),
   name: z.string(),
-  scopes: z.array(z.enum(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "nutrition:read", "nutrition:write", "coaching:read", "dashboard:link"])),
+  scopes: z.array(z.enum(["workouts:read", "workouts:write", "metrics:read", "metrics:write", "nutrition:read", "nutrition:write", "notes:read", "notes:write", "coaching:read", "dashboard:link"])),
   capabilities: z.array(z.string()),
   webhookUrl: z.string().optional(),
   createdAt: z.string(),

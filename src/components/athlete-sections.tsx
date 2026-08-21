@@ -19,7 +19,7 @@ import {
 import { AnimatedNumber, TrendChart } from "@/components/progress-charts";
 import { Icon, InlineNotice, Spinner } from "@/components/ui";
 
-export type AthleteSection = "today" | "training" | "workout" | "nutrition" | "body" | "metrics" | "progress" | "agents" | "api";
+export type AthleteSection = "today" | "training" | "workout" | "nutrition" | "notes" | "body" | "metrics" | "progress" | "agents" | "api";
 const numberFormat = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const formatNumber = (value: number): string => numberFormat.format(value);
 export const dateKey = (value: string): string => value.slice(0, 10);

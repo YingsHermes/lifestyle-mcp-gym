@@ -78,6 +78,12 @@ describe("MCP JSON-RPC surface", () => {
       "get_nutrition_summary",
       "calculate_calorie_targets",
       "get_coaching_context",
+      "create_note",
+      "search_notes",
+      "get_note",
+      "update_note",
+      "delete_note",
+      "get_notes_context",
       "create_dashboard_link",
     ]);
   });

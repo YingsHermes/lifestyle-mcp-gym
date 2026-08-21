@@ -1,5 +1,5 @@
-import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
-import { emptyStorageDocument, StorageConflictError, type LifestyleStorage, type NutritionEntryUpdate, type StorageDocument } from "@/lib/storage/types";
+import type { Agent, AgentDashboardLink, BodyMetric, Note, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
+import { emptyStorageDocument, StorageConflictError, type LifestyleStorage, type NoteUpdate, type NutritionEntryUpdate, type StorageDocument } from "@/lib/storage/types";
 
 export class MemoryStorage implements LifestyleStorage {
   protected document: StorageDocument;
@@ -147,6 +147,51 @@ export class MemoryStorage implements LifestyleStorage {
     const index = this.document.nutritionEntries.findIndex((entry) => entry.id === entryId && entry.ownerId === ownerId);
     if (index < 0) return null;
     const [deleted] = this.document.nutritionEntries.splice(index, 1);
+    return structuredClone(deleted);
+  }
+
+  async createNote(note: Note): Promise<Note> {
+    this.document.notes.push(structuredClone(note));
+    return structuredClone(note);
+  }
+
+  async searchNotes(ownerId: string, query: string, limit: number): Promise<Note[]> {
+    const terms = query.toLocaleLowerCase().split(/\s+/u).filter(Boolean);
+    return this.document.notes
+      .filter((note) => note.ownerId === ownerId)
+      .map((note) => {
+        const title = note.title.toLocaleLowerCase();
+        const content = note.content.toLocaleLowerCase();
+        const tags = note.tags.map((tag) => tag.toLocaleLowerCase());
+        const matches = terms.length === 0 || terms.every((term) =>
+          title.includes(term) || content.includes(term) || tags.some((tag) => tag.includes(term)));
+        const score = terms.reduce((total, term) =>
+          total + (title.includes(term) ? 8 : 0) + (tags.some((tag) => tag.includes(term)) ? 5 : 0) + (content.includes(term) ? 1 : 0), 0);
+        return { note, matches, score };
+      })
+      .filter((result) => result.matches)
+      .sort((left, right) => right.score - left.score || right.note.updatedAt.localeCompare(left.note.updatedAt))
+      .slice(0, limit)
+      .map(({ note }) => structuredClone(note));
+  }
+
+  async getNote(ownerId: string, noteId: string): Promise<Note | null> {
+    const note = this.document.notes.find((candidate) => candidate.id === noteId && candidate.ownerId === ownerId);
+    return note ? structuredClone(note) : null;
+  }
+
+  async updateNote(ownerId: string, noteId: string, patch: NoteUpdate): Promise<Note | null> {
+    const index = this.document.notes.findIndex((note) => note.id === noteId && note.ownerId === ownerId);
+    if (index < 0) return null;
+    const updated = { ...this.document.notes[index], ...structuredClone(patch) };
+    this.document.notes[index] = updated;
+    return structuredClone(updated);
+  }
+
+  async deleteNote(ownerId: string, noteId: string): Promise<Note | null> {
+    const index = this.document.notes.findIndex((note) => note.id === noteId && note.ownerId === ownerId);
+    if (index < 0) return null;
+    const [deleted] = this.document.notes.splice(index, 1);
     return structuredClone(deleted);
   }
 }

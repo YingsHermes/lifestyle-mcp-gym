@@ -1,7 +1,8 @@
-import type { Agent, AgentDashboardLink, BodyMetric, FoodLogPatchInput, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, FoodLogPatchInput, Note, NotePatchInput, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 export class StorageConflictError extends Error {}
 
 export type NutritionEntryUpdate = FoodLogPatchInput & { updatedAt: string };
+export type NoteUpdate = NotePatchInput & { updatedAt: string };
 
 
 export interface LifestyleStorage {
@@ -27,6 +28,11 @@ export interface LifestyleStorage {
   listNutritionEntries(ownerId: string, limit: number): Promise<NutritionEntry[]>;
   updateNutritionEntry(ownerId: string, entryId: string, patch: NutritionEntryUpdate): Promise<NutritionEntry | null>;
   deleteNutritionEntry(ownerId: string, entryId: string): Promise<NutritionEntry | null>;
+  createNote(note: Note): Promise<Note>;
+  searchNotes(ownerId: string, query: string, limit: number): Promise<Note[]>;
+  getNote(ownerId: string, noteId: string): Promise<Note | null>;
+  updateNote(ownerId: string, noteId: string, patch: NoteUpdate): Promise<Note | null>;
+  deleteNote(ownerId: string, noteId: string): Promise<Note | null>;
 }
 
 export interface StorageDocument {
@@ -39,6 +45,7 @@ export interface StorageDocument {
   bodyMetrics: BodyMetric[];
   nutritionProfiles: NutritionProfile[];
   nutritionEntries: NutritionEntry[];
+  notes: Note[];
 }
 
 export function emptyStorageDocument(): StorageDocument {
@@ -52,5 +59,6 @@ export function emptyStorageDocument(): StorageDocument {
     bodyMetrics: [],
     nutritionProfiles: [],
     nutritionEntries: [],
+    notes: [],
   };
 }

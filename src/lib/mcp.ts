@@ -7,6 +7,9 @@ import {
   foodLogInputSchema,
   foodLogPatchSchema,
   foodLogListQuerySchema,
+  noteInputSchema,
+  notePatchSchema,
+  noteSearchQuerySchema,
   nutritionProfileInputSchema,
   nutritionSummaryQuerySchema,
   progressRangeQuerySchema,
@@ -46,6 +49,14 @@ const nutritionEntryIdArgumentsSchema = z.object({
 
 const updateFoodArgumentsSchema = z.object({
   entryId: z.string().trim().min(1).max(200),
+}).passthrough();
+
+const noteIdArgumentsSchema = z.object({
+  noteId: z.string().trim().min(1).max(200),
+}).strict();
+
+const updateNoteArgumentsSchema = z.object({
+  noteId: z.string().trim().min(1).max(200),
 }).passthrough();
 
 type RpcId = string | number | null;
@@ -266,6 +277,81 @@ const tools: ToolDefinition[] = [
     inputSchema: { type: "object", additionalProperties: false },
   },
   {
+    name: "create_note",
+    description: "Save durable owner-scoped memory. Agents should save useful decisions, preferences, constraints, facts, and handoff context often so future sessions can retrieve them.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "content"],
+      properties: {
+        title: { type: "string", minLength: 1, maxLength: 200 },
+        content: { type: "string", minLength: 1, maxLength: 20_000 },
+        tags: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 40 } },
+      },
+    },
+  },
+  {
+    name: "search_notes",
+    description: "Search durable notes by title, tags, and content. Agents must search notes before starting work or asking for context that may already be saved.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["query"],
+      properties: {
+        query: { type: "string", minLength: 1, maxLength: 500 },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+      },
+    },
+  },
+  {
+    name: "get_note",
+    description: "Get one complete durable note by id.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["noteId"],
+      properties: { noteId: { type: "string", minLength: 1, maxLength: 200 } },
+    },
+  },
+  {
+    name: "update_note",
+    description: "Update selected fields on a durable note while preserving ownership, source agent, and creation time.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["noteId"],
+      properties: {
+        noteId: { type: "string", minLength: 1, maxLength: 200 },
+        title: { type: "string", minLength: 1, maxLength: 200 },
+        content: { type: "string", minLength: 1, maxLength: 20_000 },
+        tags: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 40 } },
+      },
+    },
+  },
+  {
+    name: "delete_note",
+    description: "Permanently delete one durable note belonging to the credential owner.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["noteId"],
+      properties: { noteId: { type: "string", minLength: 1, maxLength: 200 } },
+    },
+  },
+  {
+    name: "get_notes_context",
+    description: "Search first and return matched durable notes as an LLM-ready context block. Use this before work that may depend on prior decisions, preferences, facts, or handoffs.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["query"],
+      properties: {
+        query: { type: "string", minLength: 1, maxLength: 500 },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 10 },
+      },
+    },
+  },
+  {
     name: "create_dashboard_link",
     description: "Create a short-lived, single-use dashboard sign-in link for the agent owner.",
     inputSchema: {
@@ -332,6 +418,12 @@ function scopesForTool(toolName: string): AgentScope[] | null {
     get_nutrition_summary: ["nutrition:read"],
     calculate_calorie_targets: ["nutrition:read"],
     get_coaching_context: ["coaching:read"],
+    create_note: ["notes:write"],
+    search_notes: ["notes:read"],
+    get_note: ["notes:read"],
+    update_note: ["notes:write"],
+    delete_note: ["notes:write"],
+    get_notes_context: ["notes:read"],
   };
   return scopes[toolName] ?? null;
 }
@@ -429,6 +521,38 @@ async function callTool(
     noArgumentsSchema.parse(rawArguments);
     return service.getCoachingContext(ownerId);
   }
+  if (toolName === "create_note") {
+    const note = await service.createNote(ownerId, noteInputSchema.parse(rawArguments), agentId);
+    return { note, humanReadable: `Saved durable note \"${note.title}\". Continue saving useful durable context often.` };
+  }
+  if (toolName === "search_notes") {
+    const query = noteSearchQuerySchema.parse(rawArguments);
+    if (!query.query) throw new AppError(400, "note_query_required", "A note search query is required");
+    const notes = await service.searchNotes(ownerId, query);
+    return {
+      query: query.query,
+      notes,
+      humanReadable: `Found ${notes.length} durable note${notes.length === 1 ? "" : "s"} for \"${query.query}\".`,
+    };
+  }
+  if (toolName === "get_note") {
+    const input = noteIdArgumentsSchema.parse(rawArguments);
+    return service.getNote(ownerId, input.noteId);
+  }
+  if (toolName === "update_note") {
+    const input = updateNoteArgumentsSchema.parse(rawArguments);
+    const { noteId, ...rawPatch } = input;
+    const note = await service.updateNote(ownerId, noteId, notePatchSchema.parse(rawPatch));
+    return { note, humanReadable: `Updated durable note \"${note.title}\".` };
+  }
+  if (toolName === "delete_note") {
+    const input = noteIdArgumentsSchema.parse(rawArguments);
+    await service.deleteNote(ownerId, input.noteId);
+    return { deleted: true, noteId: input.noteId, humanReadable: "Durable note deleted." };
+  }
+  if (toolName === "get_notes_context") {
+    return service.getNotesContext(ownerId, noteSearchQuerySchema.parse(rawArguments));
+  }
 
 
   if (toolName === "log_workout") {
@@ -474,6 +598,7 @@ export async function handleMcpRequest(
         protocolVersion: "2025-03-26",
         capabilities: { tools: { listChanged: true } },
         serverInfo: { name: "lifestyle-mcp-gym", version: "0.2.0" },
+        instructions: "Search durable notes before starting work or asking the owner for context that may already exist. Save durable notes often when decisions, preferences, constraints, facts, or handoff context will matter in future sessions.",
       });
     }
     if (request.method === "notifications/initialized") {

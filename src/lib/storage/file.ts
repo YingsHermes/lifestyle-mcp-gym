@@ -1,10 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Agent, AgentDashboardLink, BodyMetric, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
+import type { Agent, AgentDashboardLink, BodyMetric, Note, NutritionEntry, NutritionProfile, Session, User, Workout } from "@/lib/domain";
 import { MemoryStorage } from "@/lib/storage/memory";
 import { storageDocumentSchema } from "@/lib/storage/schema";
-import type { NutritionEntryUpdate } from "@/lib/storage/types";
+import type { NoteUpdate, NutritionEntryUpdate } from "@/lib/storage/types";
 
 export class JsonFileStorage extends MemoryStorage {
   private readonly filePath: string;
@@ -150,5 +150,27 @@ export class JsonFileStorage extends MemoryStorage {
 
   override async deleteNutritionEntry(ownerId: string, entryId: string): Promise<NutritionEntry | null> {
     return this.mutate(() => super.deleteNutritionEntry(ownerId, entryId));
+  }
+
+  override async createNote(note: Note): Promise<Note> {
+    return this.mutate(() => super.createNote(note));
+  }
+
+  override async searchNotes(ownerId: string, query: string, limit: number): Promise<Note[]> {
+    await this.waitForReads();
+    return super.searchNotes(ownerId, query, limit);
+  }
+
+  override async getNote(ownerId: string, noteId: string): Promise<Note | null> {
+    await this.waitForReads();
+    return super.getNote(ownerId, noteId);
+  }
+
+  override async updateNote(ownerId: string, noteId: string, patch: NoteUpdate): Promise<Note | null> {
+    return this.mutate(() => super.updateNote(ownerId, noteId, patch));
+  }
+
+  override async deleteNote(ownerId: string, noteId: string): Promise<Note | null> {
+    return this.mutate(() => super.deleteNote(ownerId, noteId));
   }
 }

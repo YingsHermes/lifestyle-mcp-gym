@@ -9,7 +9,7 @@ Lifestyle MCP Gym is an agent-ready gym and personal-trainer data layer: humans 
 - Workout tracking: exercises, sets, reps, weight, duration, notes, and recent activity.
 - Body metrics: weight, body fat, waist, date, and notes.
 - Nutrition profiles and bounded food logs. Nutrition values are always user-entered and are never fabricated.
-- Deterministic Mifflin-St Jeor BMR, activity-factor TDEE, goal calories, and weight-based macro estimates with versioned assumptions, missing-input guidance, safety floors, and wellness disclaimers.
+- Deterministic Mifflin-St Jeor BMR, activity-factor neutral maintenance calories, explicit goal-adjusted calories, and weight-based macro estimates with versioned assumptions, sign-mismatch warnings, missing-input guidance, safety floors, and wellness disclaimers.
 - One-call coaching context with the nutrition profile, calculated targets, today's nutrition, recent training stats, latest body metrics, and explicit next actions.
 - MCP JSON-RPC endpoint at `/api/mcp` with `initialize`, `tools/list`, and `tools/call`.
 - Scoped MCP tools for workouts, metrics, nutrition, coaching context, agent registration, and dashboard access links.
@@ -98,7 +98,19 @@ curl -s https://YOUR_DEPLOYMENT/api/mcp \
   }'
 ```
 
-The response includes concise text in `result.content` and machine-readable JSON in `result.structuredContent`. Calculated targets include the formula version, exact inputs and assumptions, missing inputs, clamp explanations, and a safety note.
+The response includes concise text in `result.content` and machine-readable JSON in `result.structuredContent`. Calculated targets include the formula version, exact inputs and assumptions, missing inputs, clamp explanations, a safety note, and these explicit goal fields:
+
+| Field | Meaning |
+| --- | --- |
+| `maintenanceCalories` | Neutral TDEE baseline before any goal adjustment. |
+| `goalTargetCalories` | Calorie target after applying the selected lose, maintain, or gain goal. |
+| `goalAdjustmentCalories` | Signed difference between `goalTargetCalories` and `maintenanceCalories`. |
+| `goal` | Selected direction: `lose`, `maintain`, `gain`, or `null` when unavailable. |
+| `goalSummary` | Human-readable sentence stating the direction and adjustment. |
+| `suggestions` | Goal-specific coaching and next-step suggestions. |
+| `targetCalories` | Backward-compatible alias of `goalTargetCalories`. |
+
+`lose` defaults below maintenance, `gain` defaults above maintenance, and `maintain` equals maintenance. A custom `targetRateKgPerWeek` is signed: negative for loss and positive for gain. If its sign contradicts the selected goal, the calculation normalizes the sign, reports that assumption, and uses the normalized rate. The coaching context repeats both the neutral baseline and goal-adjusted target in its human-readable text.
 
 ### Log user-entered food
 

@@ -81,6 +81,12 @@ const nutritionEntrySchema = z.object({
 const nutritionTargetsSchema = z.object({
   bmr: z.number().nullable(),
   tdee: z.number().nullable(),
+  maintenanceCalories: z.number().nullable(),
+  goalTargetCalories: z.number().nullable(),
+  goalAdjustmentCalories: z.number().nullable(),
+  goal: z.enum(["lose", "maintain", "gain"]).nullable(),
+  goalSummary: z.string(),
+  suggestions: z.array(z.string()),
   targetCalories: z.number().nullable(),
   proteinTargetG: z.number().nullable(),
   fatTargetG: z.number().nullable(),

@@ -75,7 +75,7 @@ export function ApiGuide({ compact = false }: { compact?: boolean }) {
       <div className="guide-heading">
         <div>
           <h2>One endpoint. Thirteen scoped tools.</h2>
-          <p>JSON-RPC 2.0 over HTTP. Structured results keep an LLM grounded while it handles the conversation.</p>
+          <p>JSON-RPC 2.0 over HTTP. Structured results separate neutral maintenance from goal-adjusted targets so an LLM can coach in the selected direction.</p>
         </div>
         <span className="endpoint-chip">POST /api/mcp</span>
       </div>
@@ -92,6 +92,7 @@ export function ApiGuide({ compact = false }: { compact?: boolean }) {
       <div className="tool-strip" aria-label="Available MCP tools">
         {["register_agent", "log_workout", "list_workouts", "get_stats", "record_body_metrics", "set_nutrition_profile", "get_nutrition_profile", "log_food", "list_food_log", "get_nutrition_summary", "calculate_calorie_targets", "get_coaching_context", "create_dashboard_link"].map((tool) => <code key={tool}>{tool}</code>)}
       </div>
+      <p className="security-line">Nutrition responses expose <code>maintenanceCalories</code>, <code>goalTargetCalories</code>, signed adjustment, goal summary, and suggestions. <code>targetCalories</code> remains a compatible alias.</p>
       <p className="security-line"><Icon name="shield" size={16} /> Agent scopes are checked per call. Registration requires an authenticated human session.</p>
     </section>
   );

@@ -148,14 +148,23 @@ describe("nutrition MCP scope enforcement and structured responses", () => {
 
     const aggregate = toolResultSchema.parse((await call(service, coach.secret, "get_coaching_context")).body);
     expect(aggregate.result.structuredContent).toMatchObject({
-      nutritionProfile: { sex: "male" },
-      calorieTargets: { targetCalories: 2259, missingInputs: [] },
+      nutritionProfile: { sex: "male", goal: "lose" },
+      calorieTargets: {
+        maintenanceCalories: 2759,
+        goalTargetCalories: 2259,
+        goalAdjustmentCalories: -500,
+        goal: "lose",
+        targetCalories: 2259,
+        missingInputs: [],
+      },
       todayNutrition: { totals: { caloriesKcal: 640, proteinG: 31 } },
       recentTrainingStats: { totalWorkouts: 0 },
       latestBodyMetrics: { weightKg: 80 },
       missingData: ["recentWorkouts"],
     });
-    expect(aggregate.result.content[0].text).toContain("Today's nutrition");
+    expect(aggregate.result.content[0].text).toContain("Neutral maintenance baseline: 2759 kcal/day.");
+    expect(aggregate.result.content[0].text).toContain("Goal-adjusted target: 2259 kcal/day.");
+    expect(aggregate.result.content[0].text).toContain("Lose goal: target is a 500 kcal/day deficit below maintenance.");
   });
 });
 
@@ -167,6 +176,13 @@ describe("coaching context missing-data guidance", () => {
     expect(context).toMatchObject({
       nutritionProfile: null,
       latestBodyMetrics: null,
+      calorieTargets: {
+        maintenanceCalories: null,
+        goalTargetCalories: null,
+        goalAdjustmentCalories: null,
+        goal: null,
+        targetCalories: null,
+      },
       missingData: ["nutritionProfile", "bodyWeight", "todayFoodLog", "recentWorkouts"],
     });
     expect(context.actionGuidance).toEqual(expect.arrayContaining([
@@ -177,5 +193,6 @@ describe("coaching context missing-data guidance", () => {
     ]));
     expect(context.calorieTargets.missingInputs).toEqual(expect.arrayContaining(["nutritionProfile", "weightKg"]));
     expect(context.safetyNote).toContain("not medical advice");
+    expect(context.humanReadable).toContain("Neutral maintenance baseline and goal-adjusted target are unavailable");
   });
 });

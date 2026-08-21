@@ -12,6 +12,7 @@ import {
   type AgentScope,
 } from "@/lib/domain";
 import { AppError, type AuthenticatedPrincipal, type LifestyleService } from "@/lib/service";
+import type { NutritionTargetResult } from "@/lib/nutrition-calculations";
 
 const rpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0"),
@@ -40,6 +41,17 @@ type RpcId = string | number | null;
 export interface McpHttpResult {
   status: number;
   body: Record<string, unknown>;
+}
+
+export interface CalorieTargetsToolResult extends NutritionTargetResult {
+  humanReadable: string;
+}
+
+function buildCalorieTargetsToolResult(targets: NutritionTargetResult): CalorieTargetsToolResult {
+  const humanReadable = targets.maintenanceCalories === null || targets.goalTargetCalories === null || targets.goalAdjustmentCalories === null
+    ? `Calorie targets need: ${targets.missingInputs.join(", ")}. ${targets.goalSummary}`
+    : `Neutral maintenance baseline: ${targets.maintenanceCalories} kcal/day. Goal-adjusted target: ${targets.goalTargetCalories} kcal/day (${targets.goalAdjustmentCalories >= 0 ? "+" : ""}${targets.goalAdjustmentCalories} kcal/day). ${targets.goalSummary} Macros: ${targets.proteinTargetG} g protein, ${targets.carbsTargetG} g carbohydrates, and ${targets.fatTargetG} g fat.`;
+  return { ...targets, humanReadable };
 }
 
 interface ToolDefinition {
@@ -145,7 +157,7 @@ const tools: ToolDefinition[] = [
         heightCm: { type: "number", minimum: 100, maximum: 250 },
         activityLevel: { enum: ["sedentary", "lightly_active", "moderately_active", "very_active", "athlete"] },
         goal: { enum: ["lose", "maintain", "gain"] },
-        targetRateKgPerWeek: { type: "number", minimum: -1, maximum: 1 },
+        targetRateKgPerWeek: { type: "number", minimum: -1, maximum: 1, description: "Signed weekly rate: negative for lose and positive for gain. A conflicting sign is normalized to the selected goal and disclosed in assumptions." },
         dietaryPreferences: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 50 } },
         allergies: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 50 } },
       },
@@ -185,17 +197,17 @@ const tools: ToolDefinition[] = [
   },
   {
     name: "get_nutrition_summary",
-    description: "Summarize user-entered calories and macros for a local calendar date and compare them with calculated estimates.",
+    description: "Summarize user-entered calories and macros for a local calendar date against an explicit neutral maintenance baseline and goal-adjusted target.",
     inputSchema: { type: "object", additionalProperties: false, properties: { date: { type: "string", format: "date" } } },
   },
   {
     name: "calculate_calorie_targets",
-    description: "Calculate deterministic BMR, TDEE, calorie, and macro wellness estimates with formula assumptions and safety notes.",
+    description: "Calculate deterministic BMR, neutral maintenance calories, goal-adjusted calories, signed goal adjustment, macros, assumptions, and goal-specific suggestions. targetCalories remains an alias of goalTargetCalories.",
     inputSchema: { type: "object", additionalProperties: false, properties: { asOfDate: { type: "string", format: "date" } } },
   },
   {
     name: "get_coaching_context",
-    description: "Return one grounded LLM-ready context containing nutrition, targets, today's food, training stats, body metrics, and missing-data actions.",
+    description: "Return one grounded LLM-ready context containing the neutral maintenance baseline, goal-adjusted target, nutrition, training stats, body metrics, suggestions, and missing-data actions.",
     inputSchema: { type: "object", additionalProperties: false },
   },
   {
@@ -333,12 +345,7 @@ async function callTool(
   if (toolName === "calculate_calorie_targets") {
     const input = calorieTargetsArgumentsSchema.parse(rawArguments);
     const targets = await service.calculateCalorieTargets(ownerId, input.asOfDate);
-    return {
-      ...targets,
-      humanReadable: targets.targetCalories === null
-        ? `Calorie targets need: ${targets.missingInputs.join(", ")}.`
-        : `Estimated daily target: ${targets.targetCalories} kcal, ${targets.proteinTargetG} g protein, ${targets.carbsTargetG} g carbohydrates, and ${targets.fatTargetG} g fat.`,
-    };
+    return buildCalorieTargetsToolResult(targets);
   }
   if (toolName === "get_coaching_context") {
     noArgumentsSchema.parse(rawArguments);

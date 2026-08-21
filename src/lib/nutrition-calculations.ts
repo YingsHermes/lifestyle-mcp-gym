@@ -1,4 +1,4 @@
-export const NUTRITION_FORMULA_VERSION = "lifestyle-nutrition-v1";
+export const NUTRITION_FORMULA_VERSION = "lifestyle-nutrition-v2";
 export const NUTRITION_SAFETY_NOTE = "These calculations are wellness estimates, not medical advice. Individual energy needs vary; edit user-entered data and consult a qualified clinician for medical or condition-specific guidance.";
 
 export type NutritionSex = "male" | "female" | "other";
@@ -27,7 +27,15 @@ export interface NutritionCalculationInputs {
 
 export interface NutritionTargetResult {
   bmr: number | null;
+  /** Backward-compatible TDEE field. Prefer maintenanceCalories for the neutral baseline. */
   tdee: number | null;
+  maintenanceCalories: number | null;
+  goalTargetCalories: number | null;
+  goalAdjustmentCalories: number | null;
+  goal: NutritionGoal | null;
+  goalSummary: string;
+  suggestions: string[];
+  /** Backward-compatible alias of goalTargetCalories. */
   targetCalories: number | null;
   proteinTargetG: number | null;
   fatTargetG: number | null;
@@ -99,6 +107,39 @@ function roundTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function suggestionsForGoal(goal: NutritionGoal): string[] {
+  if (goal === "gain") {
+    return [
+      "Eat above maintenance with a modest calorie surplus and monitor your body-weight trend.",
+      "Support the gain goal with progressive resistance training and adequate protein.",
+    ];
+  }
+  if (goal === "lose") {
+    return [
+      "Use a modest deficit below maintenance and monitor your body-weight trend.",
+      "Preserve protein intake and resistance training while losing weight.",
+    ];
+  }
+  return [
+    "Stay near maintenance and monitor your body-weight trend.",
+    "Keep protein intake and resistance training consistent while maintaining.",
+  ];
+}
+
+function goalSummary(goal: NutritionGoal, adjustmentCalories: number): string {
+  if (goal === "maintain") {
+    return "Maintain goal: target stays at maintenance.";
+  }
+  if (goal === "gain") {
+    return `Gain goal: target is a ${Math.abs(adjustmentCalories)} kcal/day surplus above maintenance.`;
+  }
+  if (adjustmentCalories === 0) {
+    return "Lose goal: safety constraints leave the target at maintenance rather than creating an unsafe target.";
+  }
+  return `Lose goal: target is a ${Math.abs(adjustmentCalories)} kcal/day deficit below maintenance.`;
+}
+
+
 export function calculateNutritionTargets(input: {
   profile: NutritionCalculationProfile;
   weightKg?: number;
@@ -128,6 +169,15 @@ export function calculateNutritionTargets(input: {
     return {
       bmr: null,
       tdee: null,
+      maintenanceCalories: null,
+      goalTargetCalories: null,
+      goalAdjustmentCalories: null,
+      goal: input.profile.goal,
+      goalSummary: `${input.profile.goal.charAt(0).toUpperCase()}${input.profile.goal.slice(1)} goal: a current body weight is required to calculate the neutral baseline and ${input.profile.goal === "gain" ? "surplus" : input.profile.goal === "lose" ? "deficit" : "maintenance target"}.`,
+      suggestions: [
+        "Record a current body weight to calculate maintenance and the goal-adjusted target.",
+        ...suggestionsForGoal(input.profile.goal),
+      ],
       targetCalories: null,
       proteinTargetG: null,
       fatTargetG: null,
@@ -143,25 +193,42 @@ export function calculateNutritionTargets(input: {
   const age = ageOnDate(input.profile.birthDate, input.asOfDate);
   const rawBmr = 10 * input.weightKg + 6.25 * input.profile.heightCm - 5 * age + SEX_OFFSET[input.profile.sex];
   const rawTdee = rawBmr * activityFactor;
+  const suppliedRate = input.profile.targetRateKgPerWeek;
   let rawTarget: number;
-  if (input.profile.targetRateKgPerWeek !== undefined) {
-    const rate = input.profile.targetRateKgPerWeek;
-    const dailyAdjustment = rate * 7700 / 7;
+
+  if (input.profile.goal === "maintain") {
+    rawTarget = rawTdee;
+    assumptions.push("The maintain goal uses TDEE without a calorie adjustment.");
+    if (suppliedRate !== undefined && suppliedRate !== 0) {
+      assumptions.push(`The supplied target rate of ${suppliedRate} kg/week was ignored because a maintain goal stays at maintenance.`);
+    }
+  } else if (suppliedRate !== undefined && suppliedRate !== 0) {
+    const normalizedRate = input.profile.goal === "lose" ? -Math.abs(suppliedRate) : Math.abs(suppliedRate);
+    if (normalizedRate !== suppliedRate) {
+      assumptions.push(`The supplied target rate of ${suppliedRate} kg/week conflicts with the ${input.profile.goal} goal; normalized to ${normalizedRate} kg/week before calculating the target.`);
+    }
+    const dailyAdjustment = normalizedRate * 7700 / 7;
     rawTarget = rawTdee + dailyAdjustment;
-    assumptions.push(`The supplied target rate of ${rate} kg/week adjusts TDEE by ${roundWhole(dailyAdjustment)} kcal/day using 7700 kcal/kg.`);
+    assumptions.push(`${normalizedRate === suppliedRate ? "The supplied" : "The normalized"} target rate of ${normalizedRate} kg/week adjusts maintenance by ${roundWhole(dailyAdjustment)} kcal/day using 7700 kcal/kg.`);
   } else {
     const adjustment = GOAL_ADJUSTMENT[input.profile.goal];
     rawTarget = rawTdee + adjustment;
-    const explanation = input.profile.goal === "maintain"
-      ? "The maintain goal uses TDEE without a calorie adjustment."
-      : `The ${input.profile.goal} goal uses the default ${Math.abs(adjustment)} kcal/day ${adjustment < 0 ? "deficit" : "surplus"}.`;
-    assumptions.push(explanation);
+    if (suppliedRate === 0) {
+      assumptions.push(`The supplied target rate of 0 kg/week does not express a ${input.profile.goal} direction, so the default goal adjustment was used.`);
+    }
+    assumptions.push(`The ${input.profile.goal} goal uses the default ${Math.abs(adjustment)} kcal/day ${adjustment < 0 ? "deficit" : "surplus"}.`);
   }
 
   const floor = SAFETY_FLOOR[input.profile.sex];
-  if (rawTarget < floor) {
-    assumptions.push(`The calculated target of ${roundWhole(rawTarget)} kcal/day was clamped to the ${floor} kcal/day safety floor.`);
-    rawTarget = floor;
+  if (rawTarget < floor && input.profile.goal !== "maintain") {
+    const calculatedTarget = roundWhole(rawTarget);
+    if (input.profile.goal === "lose" && rawTdee <= floor) {
+      assumptions.push(`The calculated target of ${calculatedTarget} kcal/day was below the ${floor} kcal/day safety floor, which would meet or exceed maintenance; the target was set to maintenance instead.`);
+      rawTarget = rawTdee;
+    } else {
+      assumptions.push(`The calculated target of ${calculatedTarget} kcal/day was clamped to the ${floor} kcal/day safety floor.`);
+      rawTarget = floor;
+    }
   }
 
   const proteinTargetG = roundTenth(1.8 * input.weightKg);
@@ -173,10 +240,25 @@ export function calculateNutritionTargets(input: {
     assumptions.push("Protein and fat targets exceed the calorie target, so the carbohydrate target was clamped to 0 g.");
   }
 
+  const maintenanceCalories = roundWhole(rawTdee);
+  let goalTargetCalories = roundWhole(rawTarget);
+  if (input.profile.goal === "gain" && goalTargetCalories <= maintenanceCalories) {
+    goalTargetCalories = maintenanceCalories + 1;
+  } else if (input.profile.goal === "lose" && rawTarget < rawTdee && goalTargetCalories >= maintenanceCalories) {
+    goalTargetCalories = maintenanceCalories - 1;
+  }
+  const goalAdjustmentCalories = goalTargetCalories - maintenanceCalories;
+
   return {
     bmr: roundWhole(rawBmr),
-    tdee: roundWhole(rawTdee),
-    targetCalories: roundWhole(rawTarget),
+    tdee: maintenanceCalories,
+    maintenanceCalories,
+    goalTargetCalories,
+    goalAdjustmentCalories,
+    goal: input.profile.goal,
+    goalSummary: goalSummary(input.profile.goal, goalAdjustmentCalories),
+    suggestions: suggestionsForGoal(input.profile.goal),
+    targetCalories: goalTargetCalories,
     proteinTargetG,
     fatTargetG,
     carbsTargetG,
@@ -192,6 +274,15 @@ export function missingNutritionTargets(missingInputs: string[]): NutritionTarge
   return {
     bmr: null,
     tdee: null,
+    maintenanceCalories: null,
+    goalTargetCalories: null,
+    goalAdjustmentCalories: null,
+    goal: null,
+    goalSummary: "Goal unavailable: set a nutrition profile to calculate maintenance and a goal-adjusted target.",
+    suggestions: [
+      "Set a nutrition profile with a lose, maintain, or gain goal.",
+      "Record a current body weight to calculate maintenance and the goal-adjusted target.",
+    ],
     targetCalories: null,
     proteinTargetG: null,
     fatTargetG: null,

@@ -404,8 +404,13 @@
   .calorie-signal, .macro-signal { min-width: 0; padding: 27px; }
   .calorie-signal h2 { font-size: 31px; font-variant-numeric: tabular-nums; }
   .calorie-signal h2 small { color: var(--muted); font-size: 11px; font-weight: 500; }
+  .calorie-basis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin-top: 22px; background: var(--line-soft); }
+  .calorie-basis div { min-width: 0; padding: 10px; background: #111512; }
+  .calorie-basis dt { color: var(--muted-2); font-size: 8px; letter-spacing: .04em; text-transform: uppercase; }
+  .calorie-basis dd { margin: 4px 0 0; overflow: hidden; color: var(--text); font-family: monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .goal-summary { margin-top: 13px; color: #c8d0ca; font-size: 10px; line-height: 1.5; }
   .calorie-signal progress, .macro-progress-row progress { width: 100%; overflow: hidden; border: 0; border-radius: 0; background: #242a26; appearance: none; }
-  .calorie-signal progress { height: 12px; margin-top: 31px; }
+  .calorie-signal progress { height: 12px; margin-top: 18px; }
   progress::-webkit-progress-bar { background: #242a26; }
   progress::-webkit-progress-value { background: var(--acid); }
   progress::-moz-progress-bar { background: var(--acid); }
@@ -441,7 +446,10 @@
   .nutrition-detail-grid summary > span { display: grid; gap: 5px; }
   .nutrition-detail-grid summary > svg { color: var(--muted); transform: rotate(90deg); }
   .nutrition-detail-grid details[open] summary > svg { transform: rotate(-90deg); }
-  .assumptions-panel ul { display: grid; gap: 8px; margin: 20px 0 0; padding: 18px 0 18px 17px; border-top: 1px solid var(--line); color: #aeb6b0; font-size: 10px; }
+  .coaching-suggestions { margin-top: 20px; padding: 15px; border: 1px solid #3c4720; background: #12160d; }
+  .coaching-suggestions > strong { color: #d7ef83; font-size: 10px; }
+  .assumptions-panel .coaching-suggestions ul { display: grid; gap: 7px; margin: 9px 0 0; padding-left: 17px; color: #c4cbc5; font-size: 10px; }
+  .assumptions-panel > ul { display: grid; gap: 8px; margin: 20px 0 0; padding: 18px 0 18px 17px; border-top: 1px solid var(--line); color: #aeb6b0; font-size: 10px; }
   .assumptions-panel > p { padding-top: 15px; border-top: 1px solid var(--line-soft); color: #d1bb8b; font-size: 10px; }
   .assumptions-panel dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 18px 0 0; }
   .assumptions-panel dl div { padding-right: 12px; border-right: 1px solid var(--line-soft); }

@@ -26,7 +26,7 @@ describe("deterministic nutrition calculations", () => {
     expect(ageOnDate("2000-02-29", "2026-02-28")).toBe(25);
   });
 
-  it("uses Mifflin-St Jeor, activity factors, default goal adjustment, and weight-based macros", () => {
+  it("keeps a lose goal below neutral maintenance with loss-specific coaching", () => {
     const result = calculateNutritionTargets({
       profile: baseProfile,
       weightKg: 80,
@@ -36,19 +36,94 @@ describe("deterministic nutrition calculations", () => {
     expect(result).toMatchObject({
       bmr: 1780,
       tdee: 2759,
+      maintenanceCalories: 2759,
+      goalTargetCalories: 2259,
+      goalAdjustmentCalories: -500,
+      goal: "lose",
+      goalSummary: "Lose goal: target is a 500 kcal/day deficit below maintenance.",
       targetCalories: 2259,
       proteinTargetG: 144,
       fatTargetG: 64,
       carbsTargetG: 276.8,
-      formulaVersion: "lifestyle-nutrition-v1",
+      formulaVersion: "lifestyle-nutrition-v2",
       missingInputs: [],
     });
+    expect(result.suggestions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/modest deficit/i),
+      expect.stringMatching(/protein.*resistance training/i),
+    ]));
+    expect(result.suggestions.join(" ")).not.toMatch(/surplus/i);
     expect(result.assumptions).toEqual(expect.arrayContaining([
       expect.stringContaining("Mifflin-St Jeor"),
       expect.stringContaining("1.55"),
       expect.stringContaining("500 kcal/day"),
     ]));
     expect(result.safetyNote).toContain("wellness estimate");
+  });
+
+  it("keeps a maintain goal exactly at neutral maintenance", () => {
+    const result = calculateNutritionTargets({
+      profile: { ...baseProfile, goal: "maintain" },
+      weightKg: 80,
+      asOfDate: "2026-08-20",
+    });
+
+    expect(result).toMatchObject({
+      maintenanceCalories: 2759,
+      goalTargetCalories: 2759,
+      goalAdjustmentCalories: 0,
+      goal: "maintain",
+      goalSummary: "Maintain goal: target stays at maintenance.",
+      targetCalories: 2759,
+    });
+    expect(result.suggestions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/stay near maintenance.*monitor.*trend/i),
+    ]));
+  });
+
+  it("keeps a gain goal above neutral maintenance with gain-specific coaching", () => {
+    const result = calculateNutritionTargets({
+      profile: { ...baseProfile, goal: "gain" },
+      weightKg: 80,
+      asOfDate: "2026-08-20",
+    });
+
+    expect(result.goalTargetCalories).toBeGreaterThan(2759);
+    expect(result).toMatchObject({
+      maintenanceCalories: 2759,
+      goalTargetCalories: 3059,
+      goalAdjustmentCalories: 300,
+      goal: "gain",
+      goalSummary: "Gain goal: target is a 300 kcal/day surplus above maintenance.",
+      targetCalories: 3059,
+    });
+    expect(result.suggestions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/eat above maintenance.*surplus/i),
+      expect.stringMatching(/progressive resistance training/i),
+    ]));
+    expect(result.suggestions.join(" ")).not.toMatch(/deficit/i);
+  });
+
+  it("normalizes custom target-rate signs that conflict with lose or gain goals", () => {
+    const loss = calculateNutritionTargets({
+      profile: { ...baseProfile, targetRateKgPerWeek: 0.25 },
+      weightKg: 80,
+      asOfDate: "2026-08-20",
+    });
+    const gain = calculateNutritionTargets({
+      profile: { ...baseProfile, goal: "gain", targetRateKgPerWeek: -0.25 },
+      weightKg: 80,
+      asOfDate: "2026-08-20",
+    });
+
+    expect(loss).toMatchObject({ maintenanceCalories: 2759, goalTargetCalories: 2484, goalAdjustmentCalories: -275 });
+    expect(gain).toMatchObject({ maintenanceCalories: 2759, goalTargetCalories: 3034, goalAdjustmentCalories: 275 });
+    expect(loss.assumptions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/0\.25 kg\/week conflicts with the lose goal; normalized to -0\.25 kg\/week/i),
+    ]));
+    expect(gain.assumptions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/-0\.25 kg\/week conflicts with the gain goal; normalized to 0\.25 kg\/week/i),
+    ]));
   });
 
   it("uses sex-specific offsets and clearly labels the other-sex midpoint estimate", () => {
@@ -73,7 +148,7 @@ describe("deterministic nutrition calculations", () => {
       profile: {
         ...baseProfile,
         sex: "female",
-        birthDate: "1956-08-20",
+        birthDate: "1986-08-20",
         heightCm: 150,
         activityLevel: "sedentary",
         targetRateKgPerWeek: -1,
@@ -82,25 +157,35 @@ describe("deterministic nutrition calculations", () => {
       asOfDate: "2026-08-20",
     });
 
-    expect(result.targetCalories).toBe(1200);
+    expect(result.goalTargetCalories).toBe(1200);
+    expect(result.targetCalories).toBe(result.goalTargetCalories);
     expect(result.assumptions).toEqual(expect.arrayContaining([
       expect.stringContaining("-1 kg/week"),
       expect.stringContaining("clamped to the 1200 kcal/day safety floor"),
     ]));
   });
 
-  it("returns explicit missing-input guidance instead of inventing a body weight", () => {
+  it("returns every explicit goal field without inventing a missing body weight", () => {
     const result = calculateNutritionTargets({ profile: baseProfile, asOfDate: "2026-08-20" });
 
     expect(result).toMatchObject({
       bmr: null,
       tdee: null,
+      maintenanceCalories: null,
+      goalTargetCalories: null,
+      goalAdjustmentCalories: null,
+      goal: "lose",
       targetCalories: null,
       proteinTargetG: null,
       fatTargetG: null,
       carbsTargetG: null,
       missingInputs: ["weightKg"],
     });
+    expect(result.goalSummary).toMatch(/current body weight.*neutral baseline.*deficit/i);
+    expect(result.suggestions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/record a current body weight/i),
+      expect.stringMatching(/modest deficit/i),
+    ]));
     expect(result.assumptions).toContain("No body weight was available; calorie and macro targets were not calculated.");
   });
 });

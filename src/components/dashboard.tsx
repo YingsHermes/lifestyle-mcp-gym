@@ -317,7 +317,7 @@ function MetricWorkspace({ metrics, onSaved, onCancel }: { metrics: BodyMetric[]
 
 function NutritionWorkspace({ profile, summary, onSaved }: { profile: NutritionProfile | null; summary: NutritionSummary; onSaved: () => Promise<void> }) {
   const targets = summary.calorieTargets;
-  const calorieTarget = targets.targetCalories;
+  const calorieTarget = targets.goalTargetCalories;
   const macroRows = [
     { label: "Protein", consumed: summary.totals.proteinG, target: targets.proteinTargetG, unit: "g" },
     { label: "Carbohydrates", consumed: summary.totals.carbohydratesG, target: targets.carbsTargetG, unit: "g" },
@@ -341,8 +341,14 @@ function NutritionWorkspace({ profile, summary, onSaved }: { profile: NutritionP
           {targets.missingInputs.length > 0 && <InlineNotice tone="info"><strong>Target needs more data:</strong> {targets.missingInputs.includes("weightKg") ? "record a body weight in Body metrics." : targets.missingInputs.join(", ")}</InlineNotice>}
           <section className="nutrition-signal-grid">
             <article className="workspace-panel calorie-signal">
-              <div className="subsection-head"><div><span className="section-kicker">Calories</span><h2>{summary.totals.caloriesKcal.toLocaleString()} <small>eaten</small></h2></div><span>{calorieTarget === null ? "Target pending" : `${calorieTarget.toLocaleString()} target`}</span></div>
-              {calorieTarget !== null ? <progress aria-label={`Calories: ${summary.totals.caloriesKcal} of ${calorieTarget} kilocalories`} max={calorieTarget} value={Math.min(summary.totals.caloriesKcal, calorieTarget)} /> : <div className="progress-placeholder" aria-label="Calorie target unavailable" />}
+              <div className="subsection-head"><div><span className="section-kicker">Calories</span><h2>{summary.totals.caloriesKcal.toLocaleString()} <small>eaten</small></h2></div><span>{calorieTarget === null ? "Target pending" : `${calorieTarget.toLocaleString()} goal target`}</span></div>
+              <dl className="calorie-basis">
+                <div><dt>Neutral maintenance</dt><dd>{targets.maintenanceCalories === null ? "Pending" : `${targets.maintenanceCalories.toLocaleString()} kcal`}</dd></div>
+                <div><dt>Goal target</dt><dd>{calorieTarget === null ? "Pending" : `${calorieTarget.toLocaleString()} kcal`}</dd></div>
+                <div><dt>Adjustment</dt><dd>{targets.goalAdjustmentCalories === null ? "Pending" : `${targets.goalAdjustmentCalories > 0 ? "+" : ""}${targets.goalAdjustmentCalories.toLocaleString()} kcal`}</dd></div>
+              </dl>
+              <p className="goal-summary">{targets.goalSummary}</p>
+              {calorieTarget !== null ? <progress aria-label={`Calories: ${summary.totals.caloriesKcal} of ${calorieTarget} goal-target kilocalories`} max={calorieTarget} value={Math.min(summary.totals.caloriesKcal, calorieTarget)} /> : <div className="progress-placeholder" aria-label="Calorie target unavailable" />}
               <div className="calorie-foot"><span>{summary.remainingCalories === null ? "Add body weight for a target" : summary.remainingCalories >= 0 ? `${summary.remainingCalories.toLocaleString()} kcal remaining` : `${Math.abs(summary.remainingCalories).toLocaleString()} kcal over target`}</span><small>{summary.entries.length} {summary.entries.length === 1 ? "entry" : "entries"} today</small></div>
             </article>
             <article className="workspace-panel macro-signal" aria-label="Macronutrient progress">
@@ -364,6 +370,7 @@ function NutritionWorkspace({ profile, summary, onSaved }: { profile: NutritionP
       {profile && <section className="nutrition-detail-grid">
         <details className="workspace-panel assumptions-panel" open>
           <summary><span><span className="section-kicker">Calculated estimate</span><strong>Assumptions and safety</strong></span><Icon name="arrow" size={16} /></summary>
+          <div className="coaching-suggestions"><strong>Goal-specific next steps</strong><ul>{targets.suggestions.map((suggestion) => <li key={suggestion}>{suggestion}</li>)}</ul></div>
           <ul>{targets.assumptions.map((assumption) => <li key={assumption}>{assumption}</li>)}</ul>
           <p>{targets.safetyNote}</p>
           <dl><div><dt>Weight input</dt><dd>{targets.inputs.weightKg ?? "Missing"}{targets.inputs.weightKg !== null ? " kg" : ""}</dd></div><div><dt>Activity</dt><dd>{profile.activityLevel.replaceAll("_", " ")}</dd></div><div><dt>Goal</dt><dd>{profile.goal}</dd></div></dl>

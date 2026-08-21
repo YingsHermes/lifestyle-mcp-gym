@@ -186,9 +186,12 @@ function buildNutritionSummary(
   for (const key of Object.keys(totals) as (keyof NutritionTotals)[]) {
     totals[key] = rounded(totals[key]);
   }
-  const remainingCalories = calorieTargets.targetCalories === null
+  const remainingCalories = calorieTargets.goalTargetCalories === null
     ? null
-    : rounded(calorieTargets.targetCalories - totals.caloriesKcal);
+    : rounded(calorieTargets.goalTargetCalories - totals.caloriesKcal);
+  const calorieContext = calorieTargets.maintenanceCalories === null || calorieTargets.goalTargetCalories === null
+    ? `Neutral maintenance baseline and goal-adjusted target are unavailable: ${calorieTargets.missingInputs.join(", ")}.`
+    : `Neutral maintenance baseline: ${calorieTargets.maintenanceCalories} kcal/day. Goal-adjusted target: ${calorieTargets.goalTargetCalories} kcal/day. ${calorieTargets.goalSummary}`;
   return {
     date,
     entries: dailyEntries,
@@ -196,7 +199,7 @@ function buildNutritionSummary(
     calorieTargets,
     remainingCalories,
     dataSource: "user_entered",
-    humanReadable: `Today's nutrition: ${totals.caloriesKcal} kcal, ${totals.proteinG} g protein, ${totals.carbohydratesG} g carbohydrates, and ${totals.fatG} g fat from ${dailyEntries.length} user-entered food ${dailyEntries.length === 1 ? "entry" : "entries"}.`,
+    humanReadable: `Today's nutrition: ${totals.caloriesKcal} kcal, ${totals.proteinG} g protein, ${totals.carbohydratesG} g carbohydrates, and ${totals.fatG} g fat from ${dailyEntries.length} user-entered food ${dailyEntries.length === 1 ? "entry" : "entries"}. ${calorieContext}`,
   };
 }
 

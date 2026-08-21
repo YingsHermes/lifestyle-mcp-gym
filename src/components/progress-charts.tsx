@@ -160,10 +160,14 @@ export function TrendChart({
         <line className="chart-baseline" x1={PAD.left} x2={VIEW_W - PAD.right} y1={VIEW_H - PAD.bottom} y2={VIEW_H - PAD.bottom} />
         <path className="trend-area" d={areaPath} fill={`url(#${gradientId})`} />
         <path className="trend-line" d={linePath} pathLength={1} style={{ stroke: color }} />
-        {[minIndex, maxIndex].map((index) => (
+        {(minIndex === maxIndex ? [minIndex] : [minIndex, maxIndex]).map((index) => (
           <g key={index} className="trend-extremum">
             <circle cx={coords[index].px} cy={coords[index].py} r={3} style={{ fill: color }} />
-            <text x={coords[index].px} y={coords[index].py - 8} textAnchor="middle">
+            <text
+              x={coords[index].px}
+              y={coords[index].py - 8}
+              textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"}
+            >
               {formatY(points[index].y)}
             </text>
           </g>

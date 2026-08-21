@@ -170,8 +170,9 @@
   .code-block pre { max-height: 340px; overflow: auto; padding: 19px; color: #bdc6bf; font-size: 11px; line-height: 1.65; }
   .tool-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
   .tool-strip code { padding: 6px 9px; border: 1px solid var(--line-soft); color: #909a93; background: var(--surface); font-size: 10px; }
-  .security-line { display: flex; align-items: center; gap: 8px; margin-top: 19px; color: var(--muted); font-size: 12px; }
+  .security-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 19px; color: var(--muted); font-size: 12px; }
   .security-line svg { color: var(--acid); }
+  .security-line code { overflow-wrap: anywhere; }
   .site-footer { width: min(1240px, calc(100% - 48px)); min-height: 105px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; border-top: 1px solid var(--line); color: var(--muted-2); font-size: 11px; }
   .site-footer p { text-align: center; }
   .site-footer > span { text-align: right; font-family: monospace; }
@@ -502,7 +503,7 @@
     .site-footer p, .site-footer > span { text-align: left; }
     .dashboard-topbar { position: static; }
     .storage-badge, .user-chip > span:last-child { display: none; }
-    .dashboard-grid { grid-template-columns: 1fr; }
+    .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
     .sidebar { position: sticky; top: 0; z-index: 15; width: 100%; height: auto; padding: 8px 12px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
     .sidebar nav { display: flex; min-width: max-content; }
     .sidebar nav button { width: auto; }
@@ -511,7 +512,7 @@
     .dashboard-hero { grid-template-columns: 1fr; }
     .system-orbit-card { min-height: 230px; grid-template-columns: auto 1fr; place-items: center start; text-align: left; border-top: 1px solid var(--line); border-left: 0; }
     .health-pill { top: 16px; right: 16px; bottom: auto; }
-    .overview-grid, .metric-workspace-grid { grid-template-columns: 1fr; }
+    .overview-grid, .metric-workspace-grid { grid-template-columns: minmax(0, 1fr); }
     .field-row-three { grid-template-columns: 1fr 1fr; }
     .field-row-three label:first-child { grid-column: 1 / -1; }
     .nutrition-onboarding, .nutrition-content-grid, .nutrition-detail-grid { grid-template-columns: 1fr; }
@@ -586,7 +587,7 @@
 }
 
 @layer components {
-  .athlete-overview, .training-workspace, .body-progress-workspace, .strength-workspace { display: grid; gap: 18px; }
+  .athlete-overview, .training-workspace, .body-progress-workspace, .strength-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .command-heading, .section-command-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 30px; }
   .command-heading h1, .section-command-head h1 { margin-top: 7px; font-size: clamp(31px, 4vw, 50px); line-height: 1; letter-spacing: -.045em; }
   .command-heading h1 span { color: var(--acid); }
@@ -620,7 +621,7 @@
   .workout-log > summary p { margin-top: 6px; color: var(--muted); font-size: 13px; }
   .workout-log > summary > span { color: var(--acid); font-size: 12px; font-weight: 700; white-space: nowrap; }
   .source-pill { display: inline-flex; padding: 3px 6px; border: 1px solid #4c5a37; color: var(--acid); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; vertical-align: 3px; }
-  .workout-log-detail { display: grid; gap: 18px; padding: 20px 22px 23px; border-top: 1px solid var(--line); background: #0c0f0d; }
+  .workout-log-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 20px 22px 23px; border-top: 1px solid var(--line); background: #0c0f0d; }
   .workout-log-detail dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line-soft); }
   .workout-log-detail dl div { padding: 11px; background: var(--surface); }
   .workout-log-detail dt { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
@@ -638,7 +639,7 @@
   .range-tabs button[aria-pressed="true"] { background: var(--acid); color: var(--ink); }
   .inline-loading { display: grid; min-height: 260px; place-items: center; }
   .body-signal-grid, .strength-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .body-signal-grid article, .strength-summary-grid article { min-height: 230px; padding: 20px; overflow: hidden; }
+  .body-signal-grid article, .strength-summary-grid article { display: grid; align-content: start; min-height: 230px; padding: 20px; overflow: hidden; }
   .body-signal-grid article p, .strength-summary-grid article p { margin-top: 8px; color: var(--muted); font-size: 12px; }
   .line-chart-empty { display: grid; height: 90px; margin-top: 20px; place-items: center; border-top: 1px dashed var(--line); color: var(--muted-2); font-size: 11px; text-align: center; }
   .progress-table, .strength-table { padding: 22px; }
@@ -750,7 +751,7 @@
   .progress-ring-label span { color: var(--muted-2); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
 
   /* ---- progress workspace ---- */
-  .progress-workspace, .progress-animate { display: grid; gap: 18px; }
+  .progress-workspace, .progress-animate { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .progress-animate > * { animation: section-in .5s cubic-bezier(.2,.8,.2,1) both; }
   .progress-animate > *:nth-child(2) { animation-delay: 60ms; }
   .progress-animate > *:nth-child(3) { animation-delay: 120ms; }

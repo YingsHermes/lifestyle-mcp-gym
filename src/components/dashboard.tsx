@@ -7,10 +7,10 @@ import {
   AthleteOverview,
   BodyProgressWorkspace,
   EditableNutritionEntries,
-  StrengthProgressWorkspace,
   TrainingWorkspace,
   type AthleteSection,
 } from "@/components/athlete-sections";
+import { ProgressWorkspace } from "@/components/progress-section";
 import {
   agentsResponseSchema,
   bodyProgressResponseSchema,
@@ -155,7 +155,7 @@ export function Dashboard({ user, onSignedOut }: { user: PublicUser; onSignedOut
             <button type="button" aria-current={section === "training" || section === "workout" ? "page" : undefined} className={section === "training" || section === "workout" ? "active" : ""} onClick={() => setSection("training")}><Icon name="dumbbell" /><span>Training</span></button>
             <button type="button" aria-current={section === "nutrition" ? "page" : undefined} className={section === "nutrition" ? "active" : ""} onClick={() => setSection("nutrition")}><Icon name="spark" /><span>Nutrition</span></button>
             <button type="button" aria-current={section === "body" || section === "metrics" ? "page" : undefined} className={section === "body" || section === "metrics" ? "active" : ""} onClick={() => setSection("body")}><Icon name="body" /><span>Body</span></button>
-            <button type="button" aria-current={section === "strength" ? "page" : undefined} className={section === "strength" ? "active" : ""} onClick={() => setSection("strength")}><Icon name="activity" /><span>Strength</span></button>
+            <button type="button" aria-current={section === "progress" ? "page" : undefined} className={section === "progress" ? "active" : ""} onClick={() => setSection("progress")}><Icon name="trend" /><span>Progress</span></button>
             <button type="button" aria-current={section === "agents" ? "page" : undefined} className={section === "agents" ? "active" : ""} onClick={() => setSection("agents")}><Icon name="agent" /><span>Agents / API</span></button>
           </nav>
           <div className="sidebar-card"><Icon name="shield" /><strong>Owner controlled</strong><p>Every agent is bound to your account and explicit scopes.</p><button type="button" onClick={() => setSection("agents")}>Manage access <Icon name="arrow" size={15} /></button></div>
@@ -165,15 +165,17 @@ export function Dashboard({ user, onSignedOut }: { user: PublicUser; onSignedOut
           {loading ? <DashboardSkeleton /> : error ? <div className="state-card" role="alert"><Icon name="activity" size={28} /><span className="section-kicker">Signal interrupted</span><h1>Couldn’t load the workspace</h1><p>{error}</p><button className="primary-button" type="button" onClick={() => void loadData(true)}><Icon name="activity" size={17} /> Try again</button></div> : (
             <>
               {data?.storage && !data.storage.durable && <InlineNotice tone="info"><strong>Demo persistence:</strong> {data.storage.notice}</InlineNotice>}
-              {section === "today" && data && <AthleteOverview firstName={firstName} workouts={data.workouts} stats={data.stats} nutrition={data.nutritionSummary} body={data.bodyProgress} strength={data.strengthProgress} agents={data.agents} onNavigate={setSection} />}
-              {section === "training" && data && <TrainingWorkspace workouts={data.workouts} agents={data.agents} onLogWorkout={() => setSection("workout")} />}
-              {section === "workout" && <WorkoutForm onSaved={() => saved("training")} onCancel={() => setSection("training")} />}
-              {section === "body" && data && <BodyProgressWorkspace initial={data.bodyProgress} metrics={data.metrics} onRecord={() => setSection("metrics")} />}
-              {section === "metrics" && <MetricWorkspace metrics={data?.metrics ?? []} onSaved={() => saved("body")} onCancel={() => setSection("body")} />}
-              {section === "strength" && data && <StrengthProgressWorkspace initial={data.strengthProgress} />}
-              {section === "nutrition" && data && <NutritionWorkspace profile={data.nutritionProfile} summary={data.nutritionSummary} onSaved={() => saved("nutrition")} />}
-              {section === "agents" && <><AgentPanel agents={data?.agents ?? []} onSaved={() => saved("agents")} /><div className="workspace-panel guide-workspace"><ApiGuide compact /></div></>}
-              {section === "api" && <div className="workspace-panel guide-workspace"><ApiGuide compact /></div>}
+              <div className="section-frame" key={section}>
+                {section === "today" && data && <AthleteOverview firstName={firstName} workouts={data.workouts} stats={data.stats} nutrition={data.nutritionSummary} body={data.bodyProgress} strength={data.strengthProgress} agents={data.agents} onNavigate={setSection} />}
+                {section === "training" && data && <TrainingWorkspace workouts={data.workouts} agents={data.agents} onLogWorkout={() => setSection("workout")} />}
+                {section === "workout" && <WorkoutForm onSaved={() => saved("training")} onCancel={() => setSection("training")} />}
+                {section === "body" && data && <BodyProgressWorkspace initial={data.bodyProgress} metrics={data.metrics} onRecord={() => setSection("metrics")} />}
+                {section === "metrics" && <MetricWorkspace metrics={data?.metrics ?? []} onSaved={() => saved("body")} onCancel={() => setSection("body")} />}
+                {section === "progress" && data && <ProgressWorkspace initialStrength={data.strengthProgress} initialBody={data.bodyProgress} workouts={data.workouts} metrics={data.metrics} stats={data.stats} agents={data.agents} onNavigate={setSection} />}
+                {section === "nutrition" && data && <NutritionWorkspace profile={data.nutritionProfile} summary={data.nutritionSummary} onSaved={() => saved("nutrition")} />}
+                {section === "agents" && <><AgentPanel agents={data?.agents ?? []} onSaved={() => saved("agents")} /><div className="workspace-panel guide-workspace"><ApiGuide compact /></div></>}
+                {section === "api" && <div className="workspace-panel guide-workspace"><ApiGuide compact /></div>}
+              </div>
             </>
           )}
         </main>

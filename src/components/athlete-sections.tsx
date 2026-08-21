@@ -7,7 +7,6 @@ import {
   fetchApi,
   nutritionEntryDeletedResponseSchema,
   nutritionEntryUpdatedResponseSchema,
-  strengthProgressResponseSchema,
   type Agent,
   type BodyMetric,
   type BodyProgress,
@@ -17,18 +16,19 @@ import {
   type StrengthProgress,
   type Workout,
 } from "@/components/client-api";
+import { AnimatedNumber, TrendChart } from "@/components/progress-charts";
 import { Icon, InlineNotice, Spinner } from "@/components/ui";
 
-export type AthleteSection = "today" | "training" | "workout" | "nutrition" | "body" | "metrics" | "strength" | "agents" | "api";
+export type AthleteSection = "today" | "training" | "workout" | "nutrition" | "body" | "metrics" | "progress" | "agents" | "api";
 const numberFormat = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const formatNumber = (value: number): string => numberFormat.format(value);
-const dateKey = (value: string): string => value.slice(0, 10);
-const localToday = (): string => {
+export const dateKey = (value: string): string => value.slice(0, 10);
+export const localToday = (): string => {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 };
 const displayDate = (value: string): string => new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", year: "numeric" });
-const workoutVolume = (workout: Workout): number => workout.exercises.reduce((total, exercise) => total + exercise.sets.reduce((exerciseTotal, set) => exerciseTotal + (set.reps ?? 0) * (set.weightKg ?? 0), 0), 0);
+export const workoutVolume = (workout: Workout): number => workout.exercises.reduce((total, exercise) => total + exercise.sets.reduce((exerciseTotal, set) => exerciseTotal + (set.reps ?? 0) * (set.weightKg ?? 0), 0), 0);
 
 export function AthleteOverview({
   firstName,
@@ -62,7 +62,7 @@ export function AthleteOverview({
       ? { label: "Log today’s fuel", detail: "Training is present; nutrition is still unlogged.", section: "nutrition" as const }
       : body.metricsCount < 2
         ? { label: "Build a body trend", detail: "Add another measurement to unlock change signals.", section: "body" as const }
-        : { label: "Review strength progress", detail: "Your core daily signals are present.", section: "strength" as const };
+        : { label: "Review your progress", detail: "Your core daily signals are present.", section: "progress" as const };
 
   return (
     <div className="athlete-overview">
@@ -71,11 +71,11 @@ export function AthleteOverview({
         <button className="primary-button" type="button" onClick={() => onNavigate("workout")}><Icon name="plus" size={17} /> Log workout</button>
       </section>
       <section className="command-facts" aria-label="Today and this week">
-        <article><span>Today · activity</span><strong>{todayWorkouts.length}</strong><p>{todayWorkouts.length ? `${formatNumber(todayWorkouts.reduce((total, item) => total + workoutVolume(item), 0))} kg logged volume` : "No workout logged"}</p><button type="button" onClick={() => onNavigate("training")}>Open training <Icon name="arrow" size={14} /></button></article>
-        <article><span>Today · nutrition</span><strong>{nutrition.totals.caloriesKcal.toLocaleString()} <small>kcal</small></strong><p>{calorieTarget === null ? "Goal needs profile + weight" : `${Math.max(calorieTarget - nutrition.totals.caloriesKcal, 0).toLocaleString()} kcal remaining of ${calorieTarget.toLocaleString()}`}</p><button type="button" onClick={() => onNavigate("nutrition")}>Open nutrition <Icon name="arrow" size={14} /></button></article>
+        <article><span>Today · activity</span><strong><AnimatedNumber value={todayWorkouts.length} /></strong><p>{todayWorkouts.length ? `${formatNumber(todayWorkouts.reduce((total, item) => total + workoutVolume(item), 0))} kg logged volume` : "No workout logged"}</p><button type="button" onClick={() => onNavigate("training")}>Open training <Icon name="arrow" size={14} /></button></article>
+        <article><span>Today · nutrition</span><strong><AnimatedNumber value={nutrition.totals.caloriesKcal} format={(value) => Math.round(value).toLocaleString()} /> <small>kcal</small></strong><p>{calorieTarget === null ? "Goal needs profile + weight" : `${Math.max(calorieTarget - nutrition.totals.caloriesKcal, 0).toLocaleString()} kcal remaining of ${calorieTarget.toLocaleString()}`}</p><button type="button" onClick={() => onNavigate("nutrition")}>Open nutrition <Icon name="arrow" size={14} /></button></article>
         <article><span>Since first log · body</span><strong>{body.weight.change === null ? "—" : `${body.weight.change > 0 ? "+" : ""}${formatNumber(body.weight.change)} kg`}</strong><p>{body.weight.latest === null ? "No body weight yet" : `${formatNumber(body.weight.latest)} kg latest · ${body.weight.direction}`}</p><button type="button" onClick={() => onNavigate("body")}>Open body <Icon name="arrow" size={14} /></button></article>
-        <article><span>This week · consistency</span><strong>{activeDays}<small>/7 days</small></strong><p>{stats.weeklyWorkouts} workout{stats.weeklyWorkouts === 1 ? "" : "s"} · {formatNumber(stats.weeklyVolumeKg)} kg volume</p><button type="button" onClick={() => onNavigate("training")}>Review week <Icon name="arrow" size={14} /></button></article>
-        <article><span>This week · strength PRs</span><strong>{recentPrs.length}</strong><p>{recentPrs.length ? `${recentPrs[0].exerciseName}: ${formatNumber(recentPrs[0].valueKg)} kg${recentPrs[0].estimated ? " estimated" : ""}` : "No new records established"}</p><button type="button" onClick={() => onNavigate("strength")}>See strength <Icon name="arrow" size={14} /></button></article>
+        <article><span>This week · consistency</span><strong><AnimatedNumber value={activeDays} /><small>/7 days</small></strong><p>{stats.weeklyWorkouts} workout{stats.weeklyWorkouts === 1 ? "" : "s"} · {formatNumber(stats.weeklyVolumeKg)} kg volume</p><button type="button" onClick={() => onNavigate("training")}>Review week <Icon name="arrow" size={14} /></button></article>
+        <article><span>This week · strength PRs</span><strong><AnimatedNumber value={recentPrs.length} /></strong><p>{recentPrs.length ? `${recentPrs[0].exerciseName}: ${formatNumber(recentPrs[0].valueKg)} kg${recentPrs[0].estimated ? " estimated" : ""}` : "No new records established"}</p><button type="button" onClick={() => onNavigate("progress")}>See progress <Icon name="arrow" size={14} /></button></article>
         <article><span>Agent activity</span><strong>{activeAgents.length}<small>/{agents.length}</small></strong><p>{agents.length ? "agents have authenticated" : "No scoped agents connected"}</p><button type="button" onClick={() => onNavigate("agents")}>Manage agents <Icon name="arrow" size={14} /></button></article>
       </section>
       <section className="next-action workspace-panel">
@@ -125,7 +125,7 @@ function WorkoutLog({ workout, source }: { workout: Workout; source: string }) {
   return <details className="workspace-panel workout-log"><summary><div><span className="source-pill">{workout.agentId ? "Agent" : "Human"}</span><h3>{workout.title}</h3><p>{workout.durationMinutes ? `${workout.durationMinutes} min · ` : ""}{workout.exercises.length} exercise{workout.exercises.length === 1 ? "" : "s"} · {formatNumber(volume)} kg volume</p></div><span>Open details</span></summary><div className="workout-log-detail"><dl><div><dt>Started</dt><dd><time dateTime={workout.occurredAt}>{new Date(workout.occurredAt).toLocaleString()}</time></dd></div><div><dt>Source</dt><dd>{source}</dd></div><div><dt>Created</dt><dd><time dateTime={workout.createdAt}>{new Date(workout.createdAt).toLocaleString()}</time></dd></div><div><dt>Total volume</dt><dd>{formatNumber(volume)} kg</dd></div></dl>{workout.notes && <p className="workout-notes"><strong>Session notes:</strong> {workout.notes}</p>}<div className="table-scroll"><table><caption className="sr-only">Exercises and sets for {workout.title}</caption><thead><tr><th scope="col">Exercise</th><th scope="col">Set</th><th scope="col">Reps</th><th scope="col">Weight</th><th scope="col">Volume</th><th scope="col">Notes</th></tr></thead><tbody>{workout.exercises.flatMap((exercise) => exercise.sets.map((set, index) => <tr key={set.id}><th scope="row">{exercise.name}</th><td>{index + 1}</td><td>{set.reps ?? "—"}</td><td>{set.weightKg === undefined ? "—" : `${formatNumber(set.weightKg)} kg`}</td><td>{set.reps !== undefined && set.weightKg !== undefined ? `${formatNumber(set.reps * set.weightKg)} kg` : "—"}</td><td>{set.notes ?? (set.durationSeconds ? `${set.durationSeconds} sec` : "—")}</td></tr>))}</tbody></table></div></div></details>;
 }
 
-const rangeStart = (days: number): string => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+export const rangeStart = (days: number): string => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
 
 export function BodyProgressWorkspace({ initial, metrics, onRecord }: { initial: BodyProgress; metrics: BodyMetric[]; onRecord: () => void }) {
   const [rangedSummary, setRangedSummary] = useState<BodyProgress | null>(null);
@@ -145,45 +145,11 @@ export function BodyProgressWorkspace({ initial, metrics, onRecord }: { initial:
     } finally { setLoading(false); }
   }
   const rows = [
-    { label: "Weight", series: summary.weight },
-    { label: "Body fat", series: summary.bodyFat },
-    { label: "Waist", series: summary.waist },
+    { label: "Weight", series: summary.weight, color: "var(--acid)" },
+    { label: "Body fat", series: summary.bodyFat, color: "var(--ice)" },
+    { label: "Waist", series: summary.waist, color: "var(--amber)" },
   ];
-  return <div className="body-progress-workspace"><section className="workspace-panel section-command-head"><div><span className="section-kicker">Body changes</span><h1>Body progress</h1><p>First, latest, and change within the selected range. Direction describes the number only—not whether it is good or bad.</p></div><button className="primary-button" type="button" onClick={onRecord}><Icon name="plus" size={17} /> Record measurement</button></section><div className="range-tabs" role="group" aria-label="Body progress date range">{(["30", "90", "all"] as const).map((item) => <button key={item} type="button" aria-pressed={range === item} onClick={() => void selectRange(item)}>{item === "all" ? "All time" : `${item} days`}</button>)}</div>{error && <InlineNotice>{error}</InlineNotice>}{loading ? <section className="workspace-panel inline-loading" role="status"><Spinner label="Loading body progress" /></section> : <><section className="body-signal-grid">{rows.map(({ label, series }) => <article className="workspace-panel" key={label}><span>{label} · {series.unit}</span><strong>{series.latest === null ? "—" : formatNumber(series.latest)}</strong><p>{series.change === null ? "Trend needs more data" : `${series.change > 0 ? "+" : ""}${formatNumber(series.change)} ${series.unit} since first in range`}</p><ProgressLine label={`${label} over time`} points={series.points} /></article>)}</section>{summary.sparseDataMessage && <InlineNotice tone="info">{summary.sparseDataMessage}</InlineNotice>}<section className="workspace-panel progress-table"><div className="subsection-head"><div><span className="section-kicker">Readable history</span><h2>Measurements</h2></div><span>{summary.metricsCount} in range</span></div>{metrics.length === 0 ? <div className="empty-compact"><Icon name="body" /><strong>No body data yet</strong><p>Record weight, body fat, waist, or any combination.</p></div> : <div className="table-scroll"><table><thead><tr><th scope="col">Date</th><th scope="col">Weight</th><th scope="col">Body fat</th><th scope="col">Waist</th><th scope="col">Source</th><th scope="col">Notes</th></tr></thead><tbody>{metrics.filter((item) => !summary.range.from || dateKey(item.recordedAt) >= summary.range.from).map((item) => <tr key={item.id}><th scope="row">{new Date(item.recordedAt).toLocaleDateString()}</th><td>{item.weightKg === undefined ? "—" : `${formatNumber(item.weightKg)} kg`}</td><td>{item.bodyFatPercent === undefined ? "—" : `${formatNumber(item.bodyFatPercent)}%`}</td><td>{item.waistCm === undefined ? "—" : `${formatNumber(item.waistCm)} cm`}</td><td>{item.agentId ? "Agent" : "Human"}</td><td>{item.notes ?? "—"}</td></tr>)}</tbody></table></div>}</section></>}</div>;
-}
-
-function ProgressLine({ label, points }: { label: string; points: Array<{ value: number }> }) {
-  if (points.length < 2) return <div className="line-chart-empty">Add another point to draw this trend.</div>;
-  const values = points.map((point) => point.value);
-  const minimum = Math.min(...values); const maximum = Math.max(...values); const spread = maximum - minimum || 1;
-  const coordinates = values.map((value, index) => `${(index / (values.length - 1)) * 100},${92 - ((value - minimum) / spread) * 76}`).join(" ");
-  return <svg className="progress-line" viewBox="0 0 100 100" role="img" aria-label={label} preserveAspectRatio="none"><polyline points={coordinates} /></svg>;
-}
-
-export function StrengthProgressWorkspace({ initial }: { initial: StrengthProgress }) {
-  const [rangedSummary, setRangedSummary] = useState<StrengthProgress | null>(null);
-  const [range, setRange] = useState<"90" | "all">("all");
-  const [status, setStatus] = useState<string | null>(null);
-  const summary = range === "all" ? initial : rangedSummary ?? initial;
-  async function selectRange(next: "90" | "all") {
-    setRange(next);
-    if (next === "all") { setStatus(null); return; }
-    setStatus("Loading strength progress…");
-    try {
-      setRangedSummary((await fetchApi(`/api/progress/strength?from=${rangeStart(90)}`, strengthProgressResponseSchema)).summary);
-      setStatus(null);
-    } catch (caught) { setStatus(caught instanceof Error ? caught.message : "Strength progress could not be loaded"); }
-  }
-  async function copySummary() {
-    const leaders = summary.exercises.slice(0, 3).map((item) => `${item.name}: ${item.bestWeightKg ?? "—"} kg best weight, ${item.bestEstimated1RMKg ?? "—"} kg estimated 1RM`).join("; ");
-    await navigator.clipboard.writeText(`My logged strength progress — ${leaders}. Total logged volume: ${formatNumber(summary.totalVolumeKg)} kg. Estimated 1RM uses Epley; not a measured max.`);
-    setStatus("Strength summary copied with estimate labels.");
-  }
-  return <div className="strength-workspace"><section className="workspace-panel section-command-head"><div><span className="section-kicker">Strength gains</span><h1>Strength progress</h1><p>Records and changes from logged sets only. Estimated 1RM uses Epley and is never presented as a measured max.</p></div><button className="secondary-button" type="button" disabled={!summary.exercises.length} onClick={() => void copySummary()}>Copy factual flex</button></section><div className="range-tabs" role="group" aria-label="Strength date range"><button type="button" aria-pressed={range === "90"} onClick={() => void selectRange("90")}>90 days</button><button type="button" aria-pressed={range === "all"} onClick={() => void selectRange("all")}>All time</button></div>{status && <InlineNotice tone={status.startsWith("Strength summary") ? "success" : "info"}>{status}</InlineNotice>}<section className="strength-summary-grid"><article className="workspace-panel"><span>Total logged volume</span><strong>{formatNumber(summary.totalVolumeKg)} <small>kg</small></strong><p>{summary.volumeTrend.direction === "insufficient_data" ? "Need two logged weeks for a trend" : `${summary.volumeTrend.changeKg! > 0 ? "+" : ""}${formatNumber(summary.volumeTrend.changeKg!)} kg, first logged week to latest`}</p></article><article className="workspace-panel"><span>Exercise records</span><strong>{summary.exercises.length}</strong><p>{summary.personalRecords.length} factual record signal{summary.personalRecords.length === 1 ? "" : "s"}</p></article><article className="workspace-panel"><span>Latest-week direction</span><strong>{summary.volumeTrend.direction.replaceAll("_", " ")}</strong><p>Compared with first logged week in range</p></article></section>{summary.exercises.length === 0 ? <section className="workspace-panel empty-state"><span className="empty-icon"><Icon name="dumbbell" size={28} /></span><h2>No weighted strength signal yet</h2><p>{summary.dataQuality.message}</p></section> : <section className="workspace-panel strength-table"><div className="subsection-head"><div><span className="section-kicker">Since first log</span><h2>Exercise progress</h2></div><span title={summary.formula.estimated1RM}>Estimated 1RM · help</span></div><div className="table-scroll"><table><thead><tr><th scope="col">Exercise</th><th scope="col">Best weight</th><th scope="col">Best estimated 1RM</th><th scope="col">First → latest weight</th><th scope="col">First → latest estimated 1RM</th><th scope="col">Records</th></tr></thead><tbody>{summary.exercises.map((item) => <tr key={item.name}><th scope="row">{item.name}<small>{item.sessions} session{item.sessions === 1 ? "" : "s"}</small></th><td>{item.bestWeightKg === null ? "—" : `${formatNumber(item.bestWeightKg)} kg`}</td><td>{item.bestEstimated1RMKg === null ? "—" : `${formatNumber(item.bestEstimated1RMKg)} kg`}<small>estimated</small></td><td>{item.firstBestWeightKg ?? "—"} → {item.latestBestWeightKg ?? "—"} kg <Change value={item.weightChangeKg} /></td><td>{item.firstEstimated1RMKg ?? "—"} → {item.latestEstimated1RMKg ?? "—"} kg <Change value={item.estimated1RMChangeKg} estimated /></td><td><div className="pr-badges">{item.badges.includes("weight_pr") && <span>Weight PR</span>}{item.badges.includes("estimated_1rm_pr") && <span title="Highest Epley estimate in logged data">Est. 1RM PR</span>}{item.badges.length === 0 && "—"}</div></td></tr>)}</tbody></table></div><p className="estimate-help">{summary.dataQuality.message} Formula: {summary.formula.estimated1RM}.</p></section>}</div>;
-}
-
-function Change({ value, estimated = false }: { value: number | null; estimated?: boolean }) {
-  return value === null ? <small>needs comparison</small> : <small className={value > 0 ? "change-up" : value < 0 ? "change-down" : ""}>{value > 0 ? "+" : ""}{formatNumber(value)} kg{estimated ? " estimated" : ""}</small>;
+  return <div className="body-progress-workspace"><section className="workspace-panel section-command-head"><div><span className="section-kicker">Body changes</span><h1>Body progress</h1><p>First, latest, and change within the selected range. Direction describes the number only—not whether it is good or bad.</p></div><button className="primary-button" type="button" onClick={onRecord}><Icon name="plus" size={17} /> Record measurement</button></section><div className="range-tabs" role="group" aria-label="Body progress date range">{(["30", "90", "all"] as const).map((item) => <button key={item} type="button" aria-pressed={range === item} onClick={() => void selectRange(item)}>{item === "all" ? "All time" : `${item} days`}</button>)}</div>{error && <InlineNotice>{error}</InlineNotice>}{loading ? <section className="workspace-panel inline-loading" role="status"><Spinner label="Loading body progress" /></section> : <><section className="body-signal-grid">{rows.map(({ label, series, color }) => <article className="workspace-panel" key={label}><span>{label} · {series.unit}</span><strong>{series.latest === null ? "—" : formatNumber(series.latest)}</strong><p>{series.change === null ? "Trend needs more data" : `${series.change > 0 ? "+" : ""}${formatNumber(series.change)} ${series.unit} since first in range`}</p>{series.points.length >= 2 ? <TrendChart label={`${label} over time`} points={series.points.map((point) => ({ x: point.recordedAt, y: point.value }))} unit={series.unit} color={color} /> : <div className="line-chart-empty">Add another point to draw this trend.</div>}</article>)}</section>{summary.sparseDataMessage && <InlineNotice tone="info">{summary.sparseDataMessage}</InlineNotice>}<section className="workspace-panel progress-table"><div className="subsection-head"><div><span className="section-kicker">Readable history</span><h2>Measurements</h2></div><span>{summary.metricsCount} in range</span></div>{metrics.length === 0 ? <div className="empty-compact"><Icon name="body" /><strong>No body data yet</strong><p>Record weight, body fat, waist, or any combination.</p></div> : <div className="table-scroll"><table><thead><tr><th scope="col">Date</th><th scope="col">Weight</th><th scope="col">Body fat</th><th scope="col">Waist</th><th scope="col">Source</th><th scope="col">Notes</th></tr></thead><tbody>{metrics.filter((item) => !summary.range.from || dateKey(item.recordedAt) >= summary.range.from).map((item) => <tr key={item.id}><th scope="row">{new Date(item.recordedAt).toLocaleDateString()}</th><td>{item.weightKg === undefined ? "—" : `${formatNumber(item.weightKg)} kg`}</td><td>{item.bodyFatPercent === undefined ? "—" : `${formatNumber(item.bodyFatPercent)}%`}</td><td>{item.waistCm === undefined ? "—" : `${formatNumber(item.waistCm)} cm`}</td><td>{item.agentId ? "Agent" : "Human"}</td><td>{item.notes ?? "—"}</td></tr>)}</tbody></table></div>}</section></>}</div>;
 }
 
 const localDateTime = (value: string): string => {
